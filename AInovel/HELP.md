@@ -2,6 +2,21 @@
 
 Current baseline: Java 17 + Spring Boot 3.5.7.
 
+## Local Development Quick Start
+
+Runbook for local `dev` environment (MySQL + Redis + app):
+
+- `docs/13-本地开发运行说明.md`
+- infra compose file: `compose.yaml`
+
+Key locations:
+
+- shared config: `src/main/resources/application.properties`
+- local dev profile config: `src/main/resources/application-dev.properties`
+- bootstrap schema: `src/main/resources/db/schema-dev.sql`
+- sensitive values via env vars:
+  `AINOVEL_DB_PASSWORD`, `AINOVEL_REDIS_PASSWORD`, `AINOVEL_JWT_SECRET`
+
 ### Reference Documentation
 
 For further reference, please consider the following sections:
@@ -12,7 +27,7 @@ For further reference, please consider the following sections:
 * [Spring Web](https://docs.spring.io/spring-boot/3.5.7/reference/web/servlet.html)
 * [JDBC API](https://docs.spring.io/spring-boot/3.5.7/reference/data/sql.html)
 * [Spring Data Redis (Access+Driver)](https://docs.spring.io/spring-boot/3.5.7/reference/data/nosql.html#data.nosql.redis)
-* [Spring Data JDBC](https://docs.spring.io/spring-boot/3.5.7/reference/data/sql.html#data.sql.jdbc)
+* [MyBatis Spring Boot Reference](https://mybatis.org/spring-boot-starter/mybatis-spring-boot-autoconfigure/)
 
 ### Guides
 
@@ -25,7 +40,7 @@ The following guides illustrate how to use some features concretely:
 * [Managing Transactions](https://spring.io/guides/gs/managing-transactions/)
 * [Accessing data with MySQL](https://spring.io/guides/gs/accessing-data-mysql/)
 * [Messaging with Redis](https://spring.io/guides/gs/messaging-redis/)
-* [Using Spring Data JDBC](https://github.com/spring-projects/spring-data-examples/tree/master/jdbc/basics)
+* [MyBatis Spring Boot Samples](https://github.com/mybatis/spring-boot-starter/tree/master/mybatis-spring-boot-samples)
 
 ### Maven Parent overrides
 

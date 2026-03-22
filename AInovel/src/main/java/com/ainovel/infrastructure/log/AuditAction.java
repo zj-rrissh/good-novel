@@ -1,0 +1,19 @@
+package com.ainovel.infrastructure.log;
+
+public enum AuditAction {
+    LOGIN,
+    LOGOUT,
+    TOKEN_REFRESH,
+    NOVEL_SUBMIT_AUDIT,
+    NOVEL_ON_SHELF,
+    NOVEL_OFF_SHELF,
+    NOVEL_BAN,
+    COMMENT_CREATE,
+    COMMENT_DELETE,
+    REACTION_LIKE,
+    REACTION_FAVORITE,
+    USER_FOLLOW,
+    AUDIT_TASK_CREATED,
+    AUDIT_MANUAL_DECIDED,
+    MESSAGE_DELIVER
+}

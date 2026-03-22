@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /mnt/d/MyProgram/AI-novel/AInovel/src/main/java/com/ainovel/**/*.java)",
+      "Bash(find /mnt/d/MyProgram/AI-novel/AInovel/src/main/java/com/ainovel -name \"*.java\" -type f -exec wc -l {} +)",
+      "Bash(head -50 /mnt/d/MyProgram/AI-novel/AInovel/docs/*.md)",
+      "Bash(./mvnw help:effective-pom)"
+    ]
+  }
+}
