@@ -6,5 +6,8 @@ public record CounterSummaryVO(
         long commentCount,
         long likeCount,
         long favoriteCount,
-        long followerCount) {
+        long followerCount,
+        boolean liked,
+        boolean favorited,
+        boolean followed) {
 }

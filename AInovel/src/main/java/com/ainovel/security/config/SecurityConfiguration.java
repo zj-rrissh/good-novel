@@ -29,6 +29,7 @@ public class SecurityConfiguration {
                             "/api/v1/novels/*",
                             "/api/v1/novels/*/chapters",
                             "/api/v1/chapters/*/content",
+                            "/api/v1/counters",
                             "/api/v1/recommend/**",
                             "/api/v1/gateway/contract").permitAll();
                     authorize.requestMatchers("/api/admin/**", "/api/v1/admin/**").hasAnyRole("ADMIN", "REVIEWER");
