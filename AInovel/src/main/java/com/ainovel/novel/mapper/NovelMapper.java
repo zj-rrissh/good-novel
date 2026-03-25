@@ -40,6 +40,16 @@ public interface NovelMapper {
             """)
     NovelEntity findByAuditTaskId(String auditTaskId);
 
+    @Select("""
+            select id, author_id, title, intro, cover_url, category_id, tag_ids, status, latest_chapter_id, word_count,
+                   audit_task_id, created_at, updated_at
+            from novel
+            where author_id = #{authorId}
+              and title = #{title}
+            limit 1
+            """)
+    NovelEntity findByAuthorIdAndTitle(@Param("authorId") Long authorId, @Param("title") String title);
+
     @Update("""
             update novel
             set title = #{title},
@@ -52,6 +62,20 @@ public interface NovelMapper {
               and author_id = #{authorId}
             """)
     int updateDraft(NovelEntity entity);
+
+    @Update("""
+            update novel
+            set title = #{title},
+                intro = #{intro},
+                cover_url = #{coverUrl},
+                category_id = #{categoryId},
+                tag_ids = #{tagIds},
+                status = #{status},
+                audit_task_id = null,
+                updated_at = current_timestamp(3)
+            where id = #{id}
+            """)
+    int updateImportedMetadata(NovelEntity entity);
 
     @Update("""
             <script>
@@ -110,4 +134,63 @@ public interface NovelMapper {
     int updateStatistics(@Param("novelId") Long novelId,
                          @Param("latestChapterId") Long latestChapterId,
                          @Param("wordCount") Long wordCount);
+
+    @Select("""
+            <script>
+            select count(1)
+            from novel
+            where 1 = 1
+            <if test='status != null and status != ""'>
+                and status = #{status}
+            </if>
+            <if test='authorId != null'>
+                and author_id = #{authorId}
+            </if>
+            <if test='categoryId != null'>
+                and category_id = #{categoryId}
+            </if>
+            <if test='keyword != null and keyword != ""'>
+                and (
+                    title like concat('%', #{keyword}, '%')
+                    or intro like concat('%', #{keyword}, '%')
+                )
+            </if>
+            </script>
+            """)
+    long countAdminQuery(@Param("status") String status,
+                         @Param("authorId") Long authorId,
+                         @Param("categoryId") Long categoryId,
+                         @Param("keyword") String keyword);
+
+    @Select("""
+            <script>
+            select id, author_id, title, intro, cover_url, category_id, tag_ids, status, latest_chapter_id, word_count,
+                   audit_task_id, created_at, updated_at
+            from novel
+            where 1 = 1
+            <if test='status != null and status != ""'>
+                and status = #{status}
+            </if>
+            <if test='authorId != null'>
+                and author_id = #{authorId}
+            </if>
+            <if test='categoryId != null'>
+                and category_id = #{categoryId}
+            </if>
+            <if test='keyword != null and keyword != ""'>
+                and (
+                    title like concat('%', #{keyword}, '%')
+                    or intro like concat('%', #{keyword}, '%')
+                )
+            </if>
+            order by updated_at desc, id desc
+            limit #{size} offset #{offset}
+            </script>
+            """)
+    List<NovelEntity> queryAdmin(@Param("status") String status,
+                                 @Param("authorId") Long authorId,
+                                 @Param("categoryId") Long categoryId,
+                                 @Param("keyword") String keyword,
+                                 @Param("offset") int offset,
+                                 @Param("size") int size);
 }

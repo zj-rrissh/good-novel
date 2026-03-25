@@ -44,6 +44,10 @@ public class CacheKeyFactory {
         return unifiedCacheManager.key(CacheKeyPrefixes.AUDIT_TASK, taskId);
     }
 
+    public String authAccessToken(String jti) {
+        return unifiedCacheManager.key(CacheKeyPrefixes.AUTH_ACCESS_TOKEN, jti);
+    }
+
     public String authLoginVersion(Long userId) {
         return unifiedCacheManager.key(CacheKeyPrefixes.AUTH_LOGIN_VERSION, userId);
     }

@@ -1,10 +1,12 @@
 package com.ainovel.community.mapper;
 
-import com.ainovel.community.domain.Comment;
 import com.ainovel.community.domain.TargetType;
+import com.ainovel.community.entity.CommentEntity;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
@@ -24,12 +26,13 @@ public interface CommentMapper {
      */
     @Insert("""
             insert into comment (
-                id, target_type, target_id, user_id, parent_id, reply_to_user_id, content, status, version, created_at
+                target_type, target_id, user_id, parent_id, reply_to_user_id, content, status, version, created_at
             ) values (
-                #{id}, #{targetType}, #{targetId}, #{userId}, #{parentId}, #{replyToUserId}, #{content}, #{status}, #{version}, #{createdAt}
+                #{targetType}, #{targetId}, #{userId}, #{parentId}, #{replyToUserId}, #{content}, #{status}, #{version}, #{createdAt}
             )
             """)
-    int insert(Comment comment);
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(CommentEntity comment);
 
     /**
      * Checks whether the same user already submitted an identical comment to the same target after the given
@@ -56,20 +59,20 @@ public interface CommentMapper {
     @Select("""
             select
                 id,
-                target_type as targetType,
-                target_id as targetId,
-                user_id as userId,
-                parent_id as parentId,
-                reply_to_user_id as replyToUserId,
+                target_type,
+                target_id,
+                user_id,
+                parent_id,
+                reply_to_user_id,
                 content,
                 status,
-                created_at as createdAt,
+                created_at,
                 version
             from comment
             where id = #{id}
             limit 1
             """)
-    Optional<Comment> findById(@Param("id") Long id);
+    Optional<CommentEntity> findById(@Param("id") Long id);
 
     /**
      * Soft delete with optimistic lock. Returns affected row count.
@@ -83,4 +86,61 @@ public interface CommentMapper {
               and status <> 'DELETED'
             """)
     int softDelete(@Param("commentId") Long commentId, @Param("expectedVersion") Long expectedVersion);
+
+    @Select("""
+            select
+                id,
+                target_type,
+                target_id,
+                user_id,
+                parent_id,
+                reply_to_user_id,
+                content,
+                status,
+                created_at,
+                version
+            from comment
+            where target_type = #{targetType}
+              and target_id = #{targetId}
+              and status = 'VISIBLE'
+            order by created_at desc, id desc
+            limit #{size} offset #{offset}
+            """)
+    List<CommentEntity> queryVisibleByTargetOrderNew(@Param("targetType") TargetType targetType,
+                                                     @Param("targetId") Long targetId,
+                                                     @Param("offset") int offset,
+                                                     @Param("size") int size);
+
+    @Select("""
+            select
+                id,
+                target_type,
+                target_id,
+                user_id,
+                parent_id,
+                reply_to_user_id,
+                content,
+                status,
+                created_at,
+                version
+            from comment
+            where target_type = #{targetType}
+              and target_id = #{targetId}
+              and status = 'VISIBLE'
+            order by created_at asc, id asc
+            limit #{size} offset #{offset}
+            """)
+    List<CommentEntity> queryVisibleByTargetOrderOld(@Param("targetType") TargetType targetType,
+                                                     @Param("targetId") Long targetId,
+                                                     @Param("offset") int offset,
+                                                     @Param("size") int size);
+
+    @Select("""
+            select count(1)
+            from comment
+            where target_type = #{targetType}
+              and target_id = #{targetId}
+              and status = 'VISIBLE'
+            """)
+    long countVisibleByTarget(@Param("targetType") TargetType targetType, @Param("targetId") Long targetId);
 }

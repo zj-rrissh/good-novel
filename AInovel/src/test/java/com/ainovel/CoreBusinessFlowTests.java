@@ -1,9 +1,12 @@
 package com.ainovel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.ainovel.cache.key.CacheKeyFactory;
 import com.ainovel.audit.domain.ReviewDecision;
 import com.ainovel.audit.dto.ReviewAuditTaskRequest;
 import com.ainovel.audit.service.ManualReviewService;
@@ -38,6 +41,7 @@ import com.ainovel.user.dto.UpdateUserProfileRequest;
 import com.ainovel.user.service.AuthService;
 import com.ainovel.user.service.UserMessageService;
 import com.ainovel.user.service.UserProfileService;
+import com.ainovel.user.service.support.AuthSessionService;
 import com.ainovel.user.vo.AccessTokenVO;
 import com.ainovel.user.vo.UserMeVO;
 import com.ainovel.user.vo.UserProfileVO;
@@ -46,6 +50,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
@@ -88,6 +93,15 @@ class CoreBusinessFlowTests {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
+    @Autowired
+    private AuthSessionService authSessionService;
+
+    @Autowired
+    private CacheKeyFactory cacheKeyFactory;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
     @AfterEach
     void clearCurrentUser() {
         CurrentUserHolder.clear();
@@ -101,20 +115,29 @@ class CoreBusinessFlowTests {
                 "Author One",
                 "https://example.com/a1.png",
                 "device1"), "register-1");
+        AccessTokenClaims registerClaims = jwtTokenProvider.parse(registerToken.accessToken()).orElseThrow();
         assertNotNull(registerToken.accessToken());
         assertNotNull(registerToken.refreshToken());
+        assertTrue(authSessionService.isAccessTokenActive(registerClaims));
+        assertNotNull(redisTemplate.opsForValue().get(cacheKeyFactory.authAccessToken(registerClaims.jti())));
 
         AccessTokenVO refreshedToken = authService.refresh(new RefreshTokenRequest(registerToken.refreshToken(), null));
+        AccessTokenClaims refreshedClaims = jwtTokenProvider.parse(refreshedToken.accessToken()).orElseThrow();
         assertNotNull(refreshedToken.accessToken());
+        assertFalse(authSessionService.isAccessTokenActive(registerClaims));
+        assertTrue(authSessionService.isAccessTokenActive(refreshedClaims));
 
         CurrentUserHolder.set(toCurrentUser(refreshedToken.accessToken()));
         authService.logout();
+        assertFalse(authSessionService.isAccessTokenActive(refreshedClaims));
         BusinessException refreshAfterLogout = assertThrows(
                 BusinessException.class,
                 () -> authService.refresh(new RefreshTokenRequest(refreshedToken.refreshToken(), null)));
         assertEquals(StandardErrorCode.UNAUTHENTICATED, refreshAfterLogout.getErrorCode());
 
         AccessTokenVO loginToken = authService.login(new LoginRequest("author001", "Password123", "device1"));
+        AccessTokenClaims loginClaims = jwtTokenProvider.parse(loginToken.accessToken()).orElseThrow();
+        assertTrue(authSessionService.isAccessTokenActive(loginClaims));
         CurrentUserHolder.set(toCurrentUser(loginToken.accessToken()));
 
         UserMeVO me = userProfileService.currentUser();

@@ -147,6 +147,8 @@ exec_maven() {
   exec "$MAVEN_HOME/bin/$MVN_CMD" "$@" || die "cannot exec $MAVEN_HOME/bin/$MVN_CMD"
 }
 
+set_java_home || die "A full JDK is required to build AInovel. Set JAVA_HOME to a JDK 17+ installation that provides both java and javac, then retry."
+
 if [ -d "$MAVEN_HOME" ]; then
   verbose "found existing MAVEN_HOME at $MAVEN_HOME"
   exec_maven "$@"

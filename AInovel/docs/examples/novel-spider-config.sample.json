@@ -1,0 +1,21 @@
+{
+  "novels": [
+    {
+      "authorId": 1002,
+      "detailUrl": "https://example.com/book/123",
+      "titleSelector": "h1.book-title",
+      "introSelector": ".book-intro",
+      "coverSelector": ".book-cover img",
+      "coverAttr": "src",
+      "categoryId": 1,
+      "tagIds": [1, 2, 3],
+      "chapterLinkSelector": ".chapter-list a",
+      "chapterLinkAttr": "href",
+      "chapterOrder": "ASC",
+      "chapterTitleSelector": "h1.chapter-title",
+      "chapterContentSelector": "#chapter-content",
+      "novelStatus": "ON_SHELF",
+      "maxChapters": 50
+    }
+  ]
+}

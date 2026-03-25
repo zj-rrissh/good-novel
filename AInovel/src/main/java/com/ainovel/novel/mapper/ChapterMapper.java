@@ -90,6 +90,20 @@ public interface ChapterMapper {
     int updateDraft(ChapterEntity entity);
 
     @Update("""
+            update novel_chapter
+            set chapter_no = #{chapterNo},
+                title = #{title},
+                content = #{content},
+                status = #{status},
+                audit_task_id = #{auditTaskId},
+                published_at = #{publishedAt},
+                updated_at = current_timestamp(3)
+            where id = #{id}
+              and novel_id = #{novelId}
+            """)
+    int updateImported(ChapterEntity entity);
+
+    @Update("""
             <script>
             update novel_chapter
             set status = #{targetStatus},

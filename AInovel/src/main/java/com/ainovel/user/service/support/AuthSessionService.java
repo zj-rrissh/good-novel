@@ -1,6 +1,8 @@
 package com.ainovel.user.service.support;
 
 import com.ainovel.cache.key.CacheKeyFactory;
+import com.ainovel.common.api.StandardErrorCode;
+import com.ainovel.infrastructure.exception.BusinessException;
 import com.ainovel.security.auth.context.CurrentUser;
 import com.ainovel.security.auth.token.AccessTokenClaims;
 import com.ainovel.security.auth.token.JwtTokenProvider;
@@ -15,6 +17,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +26,7 @@ import org.springframework.stereotype.Service;
 public class AuthSessionService {
 
     private static final Duration LOGIN_VERSION_CACHE_TTL = Duration.ofDays(30);
+    private static final Logger log = LoggerFactory.getLogger(AuthSessionService.class);
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -49,8 +54,11 @@ public class AuthSessionService {
         Instant expiresAt = now.plus(securityProperties.accessTokenTtl());
         String jti = UUID.randomUUID().toString();
         String refreshToken = UUID.randomUUID().toString().replace("-", "");
+        String normalizedDeviceId = normalizeDeviceId(deviceId);
         AuthRefreshSession refreshSession =
-                new AuthRefreshSession(account.id(), account.loginVersion(), jti, normalizeDeviceId(deviceId));
+                new AuthRefreshSession(account.id(), account.loginVersion(), jti, normalizedDeviceId);
+        AuthAccessSession accessSession =
+                new AuthAccessSession(account.id(), account.loginVersion(), normalizedDeviceId);
 
         String accessToken = jwtTokenProvider.issueAccessToken(
                 account.id(),
@@ -60,7 +68,7 @@ public class AuthSessionService {
                 now,
                 expiresAt);
 
-        saveRefreshSession(refreshToken, refreshSession, securityProperties.refreshTokenTtl());
+        persistAuthSession(jti, accessSession, refreshToken, refreshSession);
         cacheLoginVersion(account.id(), account.loginVersion());
         return new com.ainovel.user.vo.AccessTokenVO(
                 accessToken,
@@ -73,7 +81,13 @@ public class AuthSessionService {
         if (refreshToken == null || refreshToken.isBlank()) {
             return Optional.empty();
         }
-        String raw = redisTemplate.opsForValue().get(cacheKeyFactory.authRefreshToken(refreshToken));
+        String raw;
+        try {
+            raw = redisTemplate.opsForValue().get(cacheKeyFactory.authRefreshToken(refreshToken));
+        } catch (RuntimeException ex) {
+            log.debug("Redis GET refresh session failed, treat as absent. token={}", refreshToken, ex);
+            return Optional.empty();
+        }
         if (raw == null || raw.isBlank()) {
             return Optional.empty();
         }
@@ -81,6 +95,27 @@ public class AuthSessionService {
             return Optional.of(objectMapper.readValue(raw, AuthRefreshSession.class));
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("failed to parse refresh session", ex);
+        }
+    }
+
+    public Optional<AuthAccessSession> getAccessSession(String jti) {
+        if (jti == null || jti.isBlank()) {
+            return Optional.empty();
+        }
+        String raw;
+        try {
+            raw = redisTemplate.opsForValue().get(cacheKeyFactory.authAccessToken(jti));
+        } catch (RuntimeException ex) {
+            log.debug("Redis GET access session failed, treat as absent. jti={}", jti, ex);
+            return Optional.empty();
+        }
+        if (raw == null || raw.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(objectMapper.readValue(raw, AuthAccessSession.class));
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("failed to parse access session", ex);
         }
     }
 
@@ -103,10 +138,15 @@ public class AuthSessionService {
         if (claims == null || claims.subject() == null || claims.subject().isBlank()) {
             return false;
         }
-        if (claims.jti() != null && Boolean.TRUE.equals(redisTemplate.hasKey(cacheKeyFactory.authTokenBlacklist(claims.jti())))) {
+        if (isAccessTokenBlacklisted(claims.jti())) {
             return false;
         }
         Long userId = Long.valueOf(claims.subject());
+        AuthAccessSession accessSession = getAccessSession(claims.jti()).orElse(null);
+        if (accessSession == null || !userId.equals(accessSession.userId())
+                || accessSession.loginVersion() != claims.tokenVersion()) {
+            return false;
+        }
         long currentVersion = resolveLoginVersion(userId);
         return currentVersion > 0 && currentVersion == claims.tokenVersion();
     }
@@ -116,9 +156,13 @@ public class AuthSessionService {
             return 0L;
         }
         String cacheKey = cacheKeyFactory.authLoginVersion(userId);
-        String cached = redisTemplate.opsForValue().get(cacheKey);
-        if (cached != null && !cached.isBlank()) {
-            return Long.parseLong(cached);
+        try {
+            String cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached != null && !cached.isBlank()) {
+                return Long.parseLong(cached);
+            }
+        } catch (RuntimeException ex) {
+            log.debug("Redis GET login version failed, fallback to DB. userId={}", userId, ex);
         }
         Long version = userAccountMapper.findLoginVersion(userId);
         if (version == null) {
@@ -129,14 +173,22 @@ public class AuthSessionService {
     }
 
     public void cacheLoginVersion(Long userId, long loginVersion) {
-        redisTemplate.opsForValue().set(
-                cacheKeyFactory.authLoginVersion(userId),
-                String.valueOf(loginVersion),
-                LOGIN_VERSION_CACHE_TTL);
+        try {
+            redisTemplate.opsForValue().set(
+                    cacheKeyFactory.authLoginVersion(userId),
+                    String.valueOf(loginVersion),
+                    LOGIN_VERSION_CACHE_TTL);
+        } catch (RuntimeException ex) {
+            log.debug("Redis SET login version failed, skip cache write. userId={}", userId, ex);
+        }
     }
 
     public void evictLoginVersion(Long userId) {
-        redisTemplate.delete(cacheKeyFactory.authLoginVersion(userId));
+        try {
+            redisTemplate.delete(cacheKeyFactory.authLoginVersion(userId));
+        } catch (RuntimeException ex) {
+            log.debug("Redis DEL login version failed, skip delete. userId={}", userId, ex);
+        }
     }
 
     public void revokeRefreshToken(String refreshToken) {
@@ -144,15 +196,25 @@ public class AuthSessionService {
             return;
         }
         String sessionKey = cacheKeyFactory.authRefreshToken(refreshToken);
-        String raw = redisTemplate.opsForValue().get(sessionKey);
-        redisTemplate.delete(sessionKey);
+        String raw;
+        try {
+            raw = redisTemplate.opsForValue().get(sessionKey);
+            redisTemplate.delete(sessionKey);
+        } catch (RuntimeException ex) {
+            log.debug("Redis revoke refresh token failed, skip revoke. token={}", refreshToken, ex);
+            return;
+        }
         if (raw == null || raw.isBlank()) {
             return;
         }
         try {
             AuthRefreshSession session = objectMapper.readValue(raw, AuthRefreshSession.class);
             if (session.jti() != null && !session.jti().isBlank()) {
-                redisTemplate.delete(cacheKeyFactory.authRefreshTokenJti(session.jti()));
+                try {
+                    redisTemplate.delete(cacheKeyFactory.authRefreshTokenJti(session.jti()));
+                } catch (RuntimeException ex) {
+                    log.debug("Redis DEL refresh-token-jti failed, skip delete. jti={}", session.jti(), ex);
+                }
             }
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("failed to parse refresh session", ex);
@@ -179,6 +241,32 @@ public class AuthSessionService {
             redisTemplate.opsForValue().set(cacheKeyFactory.authRefreshTokenJti(session.jti()), refreshToken, ttl);
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("failed to serialize refresh session", ex);
+        } catch (RuntimeException ex) {
+            throw new BusinessException(StandardErrorCode.DEPENDENCY_UNAVAILABLE, "redis auth session unavailable");
+        }
+    }
+
+    private void saveAccessSession(String jti, AuthAccessSession session, Duration ttl) {
+        try {
+            String serialized = objectMapper.writeValueAsString(session);
+            redisTemplate.opsForValue().set(cacheKeyFactory.authAccessToken(jti), serialized, ttl);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("failed to serialize access session", ex);
+        } catch (RuntimeException ex) {
+            throw new BusinessException(StandardErrorCode.DEPENDENCY_UNAVAILABLE, "redis auth session unavailable");
+        }
+    }
+
+    private void persistAuthSession(String jti,
+                                    AuthAccessSession accessSession,
+                                    String refreshToken,
+                                    AuthRefreshSession refreshSession) {
+        try {
+            saveAccessSession(jti, accessSession, securityProperties.accessTokenTtl());
+            saveRefreshSession(refreshToken, refreshSession, securityProperties.refreshTokenTtl());
+        } catch (RuntimeException ex) {
+            cleanupAuthSessionWrite(jti, refreshToken, refreshSession.jti());
+            throw ex;
         }
     }
 
@@ -186,11 +274,20 @@ public class AuthSessionService {
         if (jti == null || jti.isBlank() || expiresAt == null) {
             return;
         }
+        try {
+            redisTemplate.delete(cacheKeyFactory.authAccessToken(jti));
+        } catch (RuntimeException ex) {
+            log.debug("Redis DEL access session failed, skip delete. jti={}", jti, ex);
+        }
         Duration ttl = Duration.between(Instant.now(), expiresAt);
         if (ttl.isNegative() || ttl.isZero()) {
             return;
         }
-        redisTemplate.opsForValue().set(cacheKeyFactory.authTokenBlacklist(jti), "1", ttl);
+        try {
+            redisTemplate.opsForValue().set(cacheKeyFactory.authTokenBlacklist(jti), "1", ttl);
+        } catch (RuntimeException ex) {
+            log.debug("Redis blacklist access token failed, skip blacklist. jti={}", jti, ex);
+        }
     }
 
     private void revokeRefreshTokenByJti(String jti) {
@@ -198,10 +295,46 @@ public class AuthSessionService {
             return;
         }
         String reverseKey = cacheKeyFactory.authRefreshTokenJti(jti);
-        String refreshToken = redisTemplate.opsForValue().get(reverseKey);
-        redisTemplate.delete(reverseKey);
+        String refreshToken;
+        try {
+            refreshToken = redisTemplate.opsForValue().get(reverseKey);
+            redisTemplate.delete(reverseKey);
+        } catch (RuntimeException ex) {
+            log.debug("Redis revoke refresh token by jti failed, skip revoke. jti={}", jti, ex);
+            return;
+        }
         if (refreshToken != null && !refreshToken.isBlank()) {
-            redisTemplate.delete(cacheKeyFactory.authRefreshToken(refreshToken));
+            try {
+                redisTemplate.delete(cacheKeyFactory.authRefreshToken(refreshToken));
+            } catch (RuntimeException ex) {
+                log.debug("Redis DEL refresh token failed, skip delete. token={}", refreshToken, ex);
+            }
+        }
+    }
+
+    private boolean isAccessTokenBlacklisted(String jti) {
+        if (jti == null || jti.isBlank()) {
+            return false;
+        }
+        try {
+            return Boolean.TRUE.equals(redisTemplate.hasKey(cacheKeyFactory.authTokenBlacklist(jti)));
+        } catch (RuntimeException ex) {
+            log.debug("Redis HAS_KEY blacklist failed, fallback as not blacklisted. jti={}", jti, ex);
+            return false;
+        }
+    }
+
+    private void cleanupAuthSessionWrite(String accessTokenJti, String refreshToken, String refreshTokenJti) {
+        deleteQuietly(cacheKeyFactory.authAccessToken(accessTokenJti), "access session", accessTokenJti);
+        deleteQuietly(cacheKeyFactory.authRefreshToken(refreshToken), "refresh session", refreshToken);
+        deleteQuietly(cacheKeyFactory.authRefreshTokenJti(refreshTokenJti), "refresh session reverse index", refreshTokenJti);
+    }
+
+    private void deleteQuietly(String key, String label, String traceValue) {
+        try {
+            redisTemplate.delete(key);
+        } catch (RuntimeException cleanupEx) {
+            log.debug("Redis cleanup {} failed. trace={}", label, traceValue, cleanupEx);
         }
     }
 

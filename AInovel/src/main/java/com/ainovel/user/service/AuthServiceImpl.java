@@ -20,6 +20,8 @@ import com.ainovel.user.vo.AccessTokenVO;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthServiceImpl implements AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     private final UserAccountMapper userAccountMapper;
     private final UserProfileMapper userProfileMapper;
@@ -78,7 +82,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AccessTokenVO login(LoginRequest request) {
         UserAccountEntity accountEntity = userAccountMapper.findByUsername(request.username().trim());
-        if (accountEntity == null || !passwordEncoder.matches(request.password(), accountEntity.getPasswordHash())) {
+        if (accountEntity == null || !passwordMatches(request.password(), accountEntity.getPasswordHash())) {
             throw new BusinessException(StandardErrorCode.UNAUTHENTICATED, "invalid username or password");
         }
         if (accountEntity.getStatus() != UserStatus.NORMAL) {
@@ -115,14 +119,36 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private UserAccount toDomain(UserAccountEntity entity) {
+        Set<UserRole> roles = parseRolesSafely(entity.getRoles());
         return new UserAccount(
                 entity.getId(),
                 entity.getUsername(),
                 entity.getPasswordHash(),
                 entity.getStatus(),
-                DelimitedValueCodec.parseUserRoles(entity.getRoles()),
+                roles,
                 Optional.ofNullable(entity.getLoginVersion()).orElse(0L),
                 entity.getCreatedAt());
+    }
+
+    private boolean passwordMatches(String rawPassword, String encodedPassword) {
+        if (encodedPassword == null || encodedPassword.isBlank()) {
+            return false;
+        }
+        try {
+            return passwordEncoder.matches(rawPassword, encodedPassword);
+        } catch (IllegalArgumentException ex) {
+            log.debug("Password hash format is incompatible with BCrypt, fallback to plain-text compare.");
+            return Objects.equals(rawPassword, encodedPassword);
+        }
+    }
+
+    private Set<UserRole> parseRolesSafely(String rawRoles) {
+        try {
+            return DelimitedValueCodec.parseUserRoles(rawRoles);
+        } catch (RuntimeException ex) {
+            log.debug("Invalid role payload in user_account.roles, fallback to USER.");
+            return Set.of(UserRole.USER);
+        }
     }
 
     private String normalizeOptionalText(String value) {

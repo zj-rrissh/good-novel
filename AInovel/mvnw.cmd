@@ -85,6 +85,25 @@ if ($env:MAVEN_USER_HOME) {
 $MAVEN_HOME_NAME = ([System.Security.Cryptography.MD5]::Create().ComputeHash([byte[]][char[]]$distributionUrl) | ForEach-Object {$_.ToString("x2")}) -join ''
 $MAVEN_HOME = "$MAVEN_HOME_PARENT/$MAVEN_HOME_NAME"
 
+function Assert-UsableJdk {
+  if ($env:JAVA_HOME) {
+    $javaExe = Join-Path $env:JAVA_HOME "bin/java.exe"
+    $javacExe = Join-Path $env:JAVA_HOME "bin/javac.exe"
+    if (!(Test-Path $javaExe) -or !(Test-Path $javacExe)) {
+      Write-Error "JAVA_HOME is set to '$env:JAVA_HOME', but bin/java.exe or bin/javac.exe does not exist. Set JAVA_HOME to a full JDK 17+ installation and retry."
+    }
+    return
+  }
+
+  $javaCmd = Get-Command java -ErrorAction SilentlyContinue
+  $javacCmd = Get-Command javac -ErrorAction SilentlyContinue
+  if (!$javaCmd -or !$javacCmd) {
+    Write-Error "A full JDK is required to build AInovel. Ensure both java and javac are available, or set JAVA_HOME to a JDK 17+ installation and retry."
+  }
+}
+
+Assert-UsableJdk
+
 if (Test-Path -Path "$MAVEN_HOME" -PathType Container) {
   Write-Verbose "found existing MAVEN_HOME at $MAVEN_HOME"
   Write-Output "MVN_CMD=$MAVEN_HOME/bin/$MVN_CMD"

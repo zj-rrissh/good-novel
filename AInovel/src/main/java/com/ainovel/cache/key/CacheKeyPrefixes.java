@@ -12,6 +12,7 @@ public final class CacheKeyPrefixes {
     public static final String COMMENT_COUNT = "counter:comment";
     public static final String RECOMMEND_HOME = "recommend:home";
     public static final String AUDIT_TASK = "audit:task";
+    public static final String AUTH_ACCESS_TOKEN = "auth:access_token";
     public static final String AUTH_LOGIN_VERSION = "auth:login_version";
     public static final String AUTH_TOKEN_BLACKLIST = "auth:token_blacklist";
     public static final String AUTH_REFRESH_TOKEN = "auth:refresh_token";
