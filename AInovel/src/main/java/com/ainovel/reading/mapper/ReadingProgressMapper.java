@@ -1,6 +1,7 @@
 package com.ainovel.reading.mapper;
 
 import com.ainovel.reading.entity.ReadingProgressEntity;
+import java.util.List;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -33,4 +34,13 @@ public interface ReadingProgressMapper {
               and novel_id = #{novelId}
             """)
     int update(ReadingProgressEntity entity);
+
+    @Select("""
+            select novel_id
+            from reading_progress
+            where user_id = #{userId}
+            order by updated_at desc, novel_id desc
+            limit #{size}
+            """)
+    List<Long> findRecentNovelIdsByUser(@Param("userId") Long userId, @Param("size") int size);
 }

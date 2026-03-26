@@ -193,4 +193,63 @@ public interface NovelMapper {
                                  @Param("keyword") String keyword,
                                  @Param("offset") int offset,
                                  @Param("size") int size);
+
+    @Select("""
+            select id, author_id, title, intro, cover_url, category_id, tag_ids, status, latest_chapter_id, word_count,
+                   audit_task_id, created_at, updated_at
+            from novel
+            where status = 'ON_SHELF'
+            order by updated_at desc, id desc
+            limit #{limit}
+            """)
+    List<NovelEntity> queryOnShelf(@Param("limit") int limit);
+
+    @Select("""
+            <script>
+            select id, author_id, title, intro, cover_url, category_id, tag_ids, status, latest_chapter_id, word_count,
+                   audit_task_id, created_at, updated_at
+            from novel
+            where status = 'ON_SHELF'
+              and category_id = #{categoryId}
+              and id != #{excludeNovelId}
+            order by updated_at desc, id desc
+            limit #{limit}
+            </script>
+            """)
+    List<NovelEntity> queryOnShelfByCategoryExclude(@Param("categoryId") Long categoryId,
+                                                    @Param("excludeNovelId") Long excludeNovelId,
+                                                    @Param("limit") int limit);
+
+    @Select("""
+            <script>
+            select id, author_id, title, intro, cover_url, category_id, tag_ids, status, latest_chapter_id, word_count,
+                   audit_task_id, created_at, updated_at
+            from novel
+            where status = 'ON_SHELF'
+            <if test='excludeIds != null and excludeIds.size() > 0'>
+                and id not in
+                <foreach collection='excludeIds' item='id' open='(' separator=',' close=')'>
+                    #{id}
+                </foreach>
+            </if>
+            order by updated_at desc, id desc
+            limit #{limit}
+            </script>
+            """)
+    List<NovelEntity> queryOnShelfExcludeIds(@Param("excludeIds") List<Long> excludeIds,
+                                             @Param("limit") int limit);
+
+    @Select("""
+            <script>
+            select id, author_id, title, intro, cover_url, category_id, tag_ids, status, latest_chapter_id, word_count,
+                   audit_task_id, created_at, updated_at
+            from novel
+            where status = 'ON_SHELF'
+              and id in
+              <foreach collection='novelIds' item='id' open='(' separator=',' close=')'>
+                  #{id}
+              </foreach>
+            </script>
+            """)
+    List<NovelEntity> queryOnShelfByIds(@Param("novelIds") List<Long> novelIds);
 }

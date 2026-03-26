@@ -71,12 +71,16 @@ class NovelSpiderImportServiceTests {
 
         when(spiderPageFetcher.fetch(anyString())).thenAnswer(invocation -> {
             String url = invocation.getArgument(0, String.class);
-            return switch (url) {
-                case detailUrl -> parse(detailHtml.get(), detailUrl);
-                case chapterOneUrl -> parse(chapterOneHtml.get(), chapterOneUrl);
-                case chapterTwoUrl -> parse(chapterTwoHtml.get(), chapterTwoUrl);
-                default -> throw new IllegalArgumentException("unexpected url: " + url);
-            };
+            if (detailUrl.equals(url)) {
+                return parse(detailHtml.get(), detailUrl);
+            }
+            if (chapterOneUrl.equals(url)) {
+                return parse(chapterOneHtml.get(), chapterOneUrl);
+            }
+            if (chapterTwoUrl.equals(url)) {
+                return parse(chapterTwoHtml.get(), chapterTwoUrl);
+            }
+            throw new IllegalArgumentException("unexpected url: " + url);
         });
 
         NovelSpiderImportManifest manifest = new NovelSpiderImportManifest(List.of(
