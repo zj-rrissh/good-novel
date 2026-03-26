@@ -20,7 +20,26 @@ class JwtTokenProviderTests {
 
     private static final String JWT_SECRET = "test-secret-key";
     private final JwtTokenProvider tokenProvider =
-            new JwtTokenProvider(new SecurityProperties(null, null, null, "ainovel", JWT_SECRET, false));
+            new JwtTokenProvider(new SecurityProperties(
+                    null,
+                    null,
+                    null,
+                    "ainovel",
+                    JWT_SECRET,
+                    false,
+                    true,
+                    20,
+                    60,
+                    10,
+                    60,
+                    120,
+                    60,
+                    40,
+                    300,
+                    20,
+                    300,
+                    200,
+                    300));
 
     @Test
     void shouldParseValidToken() {

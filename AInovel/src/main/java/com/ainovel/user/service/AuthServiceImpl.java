@@ -2,7 +2,11 @@ package com.ainovel.user.service;
 
 import com.ainovel.common.api.StandardErrorCode;
 import com.ainovel.infrastructure.exception.BusinessException;
+import com.ainovel.infrastructure.log.AuditAction;
+import com.ainovel.infrastructure.log.TraceIdHolder;
 import com.ainovel.persistence.support.DelimitedValueCodec;
+import com.ainovel.security.audit.SecurityAuditEvent;
+import com.ainovel.security.audit.SecurityAuditService;
 import com.ainovel.security.auth.context.CurrentUserHolder;
 import com.ainovel.user.domain.UserAccount;
 import com.ainovel.user.domain.UserRole;
@@ -36,15 +40,18 @@ public class AuthServiceImpl implements AuthService {
     private final UserProfileMapper userProfileMapper;
     private final PasswordEncoder passwordEncoder;
     private final AuthSessionService authSessionService;
+    private final SecurityAuditService securityAuditService;
 
     public AuthServiceImpl(UserAccountMapper userAccountMapper,
                            UserProfileMapper userProfileMapper,
                            PasswordEncoder passwordEncoder,
-                           AuthSessionService authSessionService) {
+                           AuthSessionService authSessionService,
+                           SecurityAuditService securityAuditService) {
         this.userAccountMapper = userAccountMapper;
         this.userProfileMapper = userProfileMapper;
         this.passwordEncoder = passwordEncoder;
         this.authSessionService = authSessionService;
+        this.securityAuditService = securityAuditService;
     }
 
     @Override
@@ -76,19 +83,25 @@ public class AuthServiceImpl implements AuthService {
         profileEntity.setVerifiedStatus("UNVERIFIED");
         userProfileMapper.insert(profileEntity);
 
-        return authSessionService.issueTokens(toDomain(accountEntity), request.deviceId());
+        AccessTokenVO accessTokenVO = authSessionService.issueTokens(toDomain(accountEntity), request.deviceId());
+        audit(AuditAction.LOGIN, accountEntity.getId(), request.deviceId(), "/api/v1/auth/register", "POST", "register_success");
+        return accessTokenVO;
     }
 
     @Override
     public AccessTokenVO login(LoginRequest request) {
         UserAccountEntity accountEntity = userAccountMapper.findByUsername(request.username().trim());
         if (accountEntity == null || !passwordMatches(request.password(), accountEntity.getPasswordHash())) {
+            audit(AuditAction.LOGIN, null, request.deviceId(), "/api/v1/auth/login", "POST", "login_failed");
             throw new BusinessException(StandardErrorCode.UNAUTHENTICATED, "invalid username or password");
         }
         if (accountEntity.getStatus() != UserStatus.NORMAL) {
+            audit(AuditAction.LOGIN, accountEntity.getId(), request.deviceId(), "/api/v1/auth/login", "POST", "account_disabled");
             throw new BusinessException(StandardErrorCode.ACCOUNT_DISABLED);
         }
-        return authSessionService.issueTokens(toDomain(accountEntity), request.deviceId());
+        AccessTokenVO accessTokenVO = authSessionService.issueTokens(toDomain(accountEntity), request.deviceId());
+        audit(AuditAction.LOGIN, accountEntity.getId(), request.deviceId(), "/api/v1/auth/login", "POST", "login_success");
+        return accessTokenVO;
     }
 
     @Override
@@ -97,6 +110,8 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new BusinessException(StandardErrorCode.UNAUTHENTICATED, "refresh token invalid"));
 
         if (!authSessionService.matchesDevice(session, request.deviceId())) {
+            audit(AuditAction.AUTH_DEVICE_MISMATCH, session.userId(), request.deviceId(),
+                    "/api/v1/auth/refresh", "POST", "refresh_device_mismatch");
             throw new BusinessException(StandardErrorCode.UNAUTHENTICATED, "refresh token invalid");
         }
 
@@ -106,16 +121,28 @@ public class AuthServiceImpl implements AuthService {
         }
         if (!Objects.equals(accountEntity.getLoginVersion(), session.loginVersion())) {
             authSessionService.revokeRefreshToken(request.refreshToken());
+            audit(AuditAction.TOKEN_REFRESH, session.userId(), request.deviceId(),
+                    "/api/v1/auth/refresh", "POST", "refresh_login_version_mismatch");
             throw new BusinessException(StandardErrorCode.UNAUTHENTICATED, "refresh token invalid");
         }
 
-        return authSessionService.rotateTokens(request.refreshToken(), toDomain(accountEntity), request.deviceId());
+        AccessTokenVO accessTokenVO = authSessionService.rotateTokens(request.refreshToken(), toDomain(accountEntity), request.deviceId());
+        audit(AuditAction.TOKEN_REFRESH, accountEntity.getId(), request.deviceId(),
+                "/api/v1/auth/refresh", "POST", "refresh_success");
+        return accessTokenVO;
     }
 
     @Override
     public void logout() {
+        Long userId = CurrentUserHolder.get()
+                .map(currentUser -> currentUser.userId())
+                .orElse(null);
+        String deviceId = CurrentUserHolder.get()
+                .map(currentUser -> currentUser.deviceId())
+                .orElse(null);
         authSessionService.revokeCurrentSession(CurrentUserHolder.get()
                 .orElseThrow(() -> new BusinessException(StandardErrorCode.UNAUTHENTICATED)));
+        audit(AuditAction.LOGOUT, userId, deviceId, "/api/v1/auth/logout", "POST", "logout_success");
     }
 
     private UserAccount toDomain(UserAccountEntity entity) {
@@ -137,9 +164,25 @@ public class AuthServiceImpl implements AuthService {
         try {
             return passwordEncoder.matches(rawPassword, encodedPassword);
         } catch (IllegalArgumentException ex) {
-            log.debug("Password hash format is incompatible with BCrypt, fallback to plain-text compare.");
-            return Objects.equals(rawPassword, encodedPassword);
+            log.warn("Password hash format is incompatible with BCrypt. reject login.");
+            return false;
         }
+    }
+
+    private void audit(AuditAction action,
+                       Long userId,
+                       String deviceId,
+                       String path,
+                       String method,
+                       String detail) {
+        securityAuditService.record(new SecurityAuditEvent(
+                action,
+                userId,
+                deviceId,
+                path,
+                method,
+                TraceIdHolder.get().orElse(""),
+                detail));
     }
 
     private Set<UserRole> parseRolesSafely(String rawRoles) {

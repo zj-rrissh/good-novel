@@ -121,7 +121,7 @@ class CoreBusinessFlowTests {
         assertTrue(authSessionService.isAccessTokenActive(registerClaims));
         assertNotNull(redisTemplate.opsForValue().get(cacheKeyFactory.authAccessToken(registerClaims.jti())));
 
-        AccessTokenVO refreshedToken = authService.refresh(new RefreshTokenRequest(registerToken.refreshToken(), null));
+        AccessTokenVO refreshedToken = authService.refresh(new RefreshTokenRequest(registerToken.refreshToken(), "device1"));
         AccessTokenClaims refreshedClaims = jwtTokenProvider.parse(refreshedToken.accessToken()).orElseThrow();
         assertNotNull(refreshedToken.accessToken());
         assertFalse(authSessionService.isAccessTokenActive(registerClaims));
@@ -132,7 +132,7 @@ class CoreBusinessFlowTests {
         assertFalse(authSessionService.isAccessTokenActive(refreshedClaims));
         BusinessException refreshAfterLogout = assertThrows(
                 BusinessException.class,
-                () -> authService.refresh(new RefreshTokenRequest(refreshedToken.refreshToken(), null)));
+                () -> authService.refresh(new RefreshTokenRequest(refreshedToken.refreshToken(), "device1")));
         assertEquals(StandardErrorCode.UNAUTHENTICATED, refreshAfterLogout.getErrorCode());
 
         AccessTokenVO loginToken = authService.login(new LoginRequest("author001", "Password123", "device1"));

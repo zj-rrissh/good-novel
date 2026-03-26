@@ -3,6 +3,10 @@ package com.ainovel.user.service.support;
 import com.ainovel.cache.key.CacheKeyFactory;
 import com.ainovel.common.api.StandardErrorCode;
 import com.ainovel.infrastructure.exception.BusinessException;
+import com.ainovel.infrastructure.log.AuditAction;
+import com.ainovel.infrastructure.log.TraceIdHolder;
+import com.ainovel.security.audit.SecurityAuditEvent;
+import com.ainovel.security.audit.SecurityAuditService;
 import com.ainovel.security.auth.context.CurrentUser;
 import com.ainovel.security.auth.token.AccessTokenClaims;
 import com.ainovel.security.auth.token.JwtTokenProvider;
@@ -34,19 +38,22 @@ public class AuthSessionService {
     private final JwtTokenProvider jwtTokenProvider;
     private final CacheKeyFactory cacheKeyFactory;
     private final UserAccountMapper userAccountMapper;
+    private final SecurityAuditService securityAuditService;
 
     public AuthSessionService(StringRedisTemplate redisTemplate,
                               ObjectMapper objectMapper,
                               SecurityProperties securityProperties,
                               JwtTokenProvider jwtTokenProvider,
                               CacheKeyFactory cacheKeyFactory,
-                              UserAccountMapper userAccountMapper) {
+                              UserAccountMapper userAccountMapper,
+                              SecurityAuditService securityAuditService) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.securityProperties = securityProperties;
         this.jwtTokenProvider = jwtTokenProvider;
         this.cacheKeyFactory = cacheKeyFactory;
         this.userAccountMapper = userAccountMapper;
+        this.securityAuditService = securityAuditService;
     }
 
     public com.ainovel.user.vo.AccessTokenVO issueTokens(UserAccount account, String deviceId) {
@@ -85,8 +92,8 @@ public class AuthSessionService {
         try {
             raw = redisTemplate.opsForValue().get(cacheKeyFactory.authRefreshToken(refreshToken));
         } catch (RuntimeException ex) {
-            log.debug("Redis GET refresh session failed, treat as absent. token={}", refreshToken, ex);
-            return Optional.empty();
+            audit(AuditAction.AUTH_REDIS_FAILURE, null, null, "refresh_session_lookup_failed");
+            throw new BusinessException(StandardErrorCode.DEPENDENCY_UNAVAILABLE, "redis auth session unavailable");
         }
         if (raw == null || raw.isBlank()) {
             return Optional.empty();
@@ -201,8 +208,8 @@ public class AuthSessionService {
             raw = redisTemplate.opsForValue().get(sessionKey);
             redisTemplate.delete(sessionKey);
         } catch (RuntimeException ex) {
-            log.debug("Redis revoke refresh token failed, skip revoke. token={}", refreshToken, ex);
-            return;
+            audit(AuditAction.AUTH_REDIS_FAILURE, null, null, "revoke_refresh_token_failed");
+            throw new BusinessException(StandardErrorCode.DEPENDENCY_UNAVAILABLE, "redis auth session unavailable");
         }
         if (raw == null || raw.isBlank()) {
             return;
@@ -213,7 +220,8 @@ public class AuthSessionService {
                 try {
                     redisTemplate.delete(cacheKeyFactory.authRefreshTokenJti(session.jti()));
                 } catch (RuntimeException ex) {
-                    log.debug("Redis DEL refresh-token-jti failed, skip delete. jti={}", session.jti(), ex);
+                    audit(AuditAction.AUTH_REDIS_FAILURE, session.userId(), null, "delete_refresh_token_jti_failed");
+                    throw new BusinessException(StandardErrorCode.DEPENDENCY_UNAVAILABLE, "redis auth session unavailable");
                 }
             }
         } catch (JsonProcessingException ex) {
@@ -224,10 +232,6 @@ public class AuthSessionService {
     public boolean matchesDevice(AuthRefreshSession session, String requestDeviceId) {
         if (session == null) {
             return false;
-        }
-        // Keep backward compatibility for clients that do not send deviceId during refresh.
-        if (requestDeviceId == null || requestDeviceId.isBlank()) {
-            return true;
         }
         String sessionDevice = normalizeDeviceId(session.deviceId());
         String currentDevice = normalizeDeviceId(requestDeviceId);
@@ -277,7 +281,8 @@ public class AuthSessionService {
         try {
             redisTemplate.delete(cacheKeyFactory.authAccessToken(jti));
         } catch (RuntimeException ex) {
-            log.debug("Redis DEL access session failed, skip delete. jti={}", jti, ex);
+            audit(AuditAction.AUTH_REDIS_FAILURE, null, null, "delete_access_session_failed");
+            throw new BusinessException(StandardErrorCode.DEPENDENCY_UNAVAILABLE, "redis auth session unavailable");
         }
         Duration ttl = Duration.between(Instant.now(), expiresAt);
         if (ttl.isNegative() || ttl.isZero()) {
@@ -286,7 +291,8 @@ public class AuthSessionService {
         try {
             redisTemplate.opsForValue().set(cacheKeyFactory.authTokenBlacklist(jti), "1", ttl);
         } catch (RuntimeException ex) {
-            log.debug("Redis blacklist access token failed, skip blacklist. jti={}", jti, ex);
+            audit(AuditAction.AUTH_REDIS_FAILURE, null, null, "write_token_blacklist_failed");
+            throw new BusinessException(StandardErrorCode.DEPENDENCY_UNAVAILABLE, "redis auth session unavailable");
         }
     }
 
@@ -300,14 +306,15 @@ public class AuthSessionService {
             refreshToken = redisTemplate.opsForValue().get(reverseKey);
             redisTemplate.delete(reverseKey);
         } catch (RuntimeException ex) {
-            log.debug("Redis revoke refresh token by jti failed, skip revoke. jti={}", jti, ex);
-            return;
+            audit(AuditAction.AUTH_REDIS_FAILURE, null, null, "revoke_refresh_token_by_jti_failed");
+            throw new BusinessException(StandardErrorCode.DEPENDENCY_UNAVAILABLE, "redis auth session unavailable");
         }
         if (refreshToken != null && !refreshToken.isBlank()) {
             try {
                 redisTemplate.delete(cacheKeyFactory.authRefreshToken(refreshToken));
             } catch (RuntimeException ex) {
-                log.debug("Redis DEL refresh token failed, skip delete. token={}", refreshToken, ex);
+                audit(AuditAction.AUTH_REDIS_FAILURE, null, null, "delete_refresh_token_failed");
+                throw new BusinessException(StandardErrorCode.DEPENDENCY_UNAVAILABLE, "redis auth session unavailable");
             }
         }
     }
@@ -319,8 +326,8 @@ public class AuthSessionService {
         try {
             return Boolean.TRUE.equals(redisTemplate.hasKey(cacheKeyFactory.authTokenBlacklist(jti)));
         } catch (RuntimeException ex) {
-            log.debug("Redis HAS_KEY blacklist failed, fallback as not blacklisted. jti={}", jti, ex);
-            return false;
+            audit(AuditAction.AUTH_REDIS_FAILURE, null, null, "check_token_blacklist_failed");
+            return true;
         }
     }
 
@@ -340,5 +347,16 @@ public class AuthSessionService {
 
     private String normalizeDeviceId(String deviceId) {
         return deviceId == null || deviceId.isBlank() ? "unknown" : deviceId.trim();
+    }
+
+    private void audit(AuditAction action, Long userId, String deviceId, String detail) {
+        securityAuditService.record(new SecurityAuditEvent(
+                action,
+                userId,
+                deviceId,
+                "",
+                "",
+                TraceIdHolder.get().orElse(""),
+                detail));
     }
 }

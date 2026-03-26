@@ -32,7 +32,7 @@ public class AccessHeaderInterceptor implements HandlerInterceptor {
         }
         String client = request.getHeader(RequestHeaders.X_CLIENT);
         if (client == null || client.isBlank()) {
-            throw new BusinessException(StandardErrorCode.INVALID_REQUEST, "missing X-Client header");
+            throw new BusinessException(StandardErrorCode.INVALID_CLIENT_HEADER, "missing X-Client header");
         }
         ClientType clientType = clientTypeResolver.resolve(client)
                 .orElseThrow(() -> new BusinessException(StandardErrorCode.INVALID_CLIENT_HEADER, "unsupported X-Client header"));

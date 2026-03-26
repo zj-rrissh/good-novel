@@ -1,6 +1,8 @@
 package com.ainovel.security.config;
 
 import com.ainovel.security.filter.BearerTokenAuthenticationFilter;
+import com.ainovel.security.filter.SecurityRateLimitFilter;
+import com.ainovel.security.filter.SecurityRiskControlFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -18,6 +20,8 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    BearerTokenAuthenticationFilter bearerTokenAuthenticationFilter,
+                                                   SecurityRateLimitFilter securityRateLimitFilter,
+                                                   SecurityRiskControlFilter securityRiskControlFilter,
                                                    SecurityProperties securityProperties) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
@@ -51,7 +55,9 @@ public class SecurityConfiguration {
                     authorize.requestMatchers(HttpMethod.PUT, "/api/v1/novels/*", "/api/v1/chapters/*").authenticated();
                     authorize.anyRequest().denyAll();
                 })
-                .addFilterBefore(bearerTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(bearerTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(securityRateLimitFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(securityRiskControlFilter, SecurityRateLimitFilter.class);
         return http.build();
     }
 
