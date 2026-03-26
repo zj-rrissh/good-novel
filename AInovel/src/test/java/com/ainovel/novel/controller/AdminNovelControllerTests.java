@@ -28,6 +28,7 @@ class AdminNovelControllerTests {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.update("delete from novel_chapter");
         jdbcTemplate.update("delete from novel");
 
         insertNovel(2001L, "星轨药铺", "银河治愈故事", 10L, "ON_SHELF", LocalDateTime.of(2026, 3, 10, 12, 0));

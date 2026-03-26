@@ -103,13 +103,14 @@ public interface CommentMapper {
             where target_type = #{targetType}
               and target_id = #{targetId}
               and status = 'VISIBLE'
+              and parent_id is null
             order by created_at desc, id desc
             limit #{size} offset #{offset}
             """)
-    List<CommentEntity> queryVisibleByTargetOrderNew(@Param("targetType") TargetType targetType,
-                                                     @Param("targetId") Long targetId,
-                                                     @Param("offset") int offset,
-                                                     @Param("size") int size);
+    List<CommentEntity> queryVisibleRootByTargetOrderNew(@Param("targetType") TargetType targetType,
+                                                         @Param("targetId") Long targetId,
+                                                         @Param("offset") int offset,
+                                                         @Param("size") int size);
 
     @Select("""
             select
@@ -127,13 +128,64 @@ public interface CommentMapper {
             where target_type = #{targetType}
               and target_id = #{targetId}
               and status = 'VISIBLE'
+              and parent_id is null
             order by created_at asc, id asc
             limit #{size} offset #{offset}
             """)
-    List<CommentEntity> queryVisibleByTargetOrderOld(@Param("targetType") TargetType targetType,
-                                                     @Param("targetId") Long targetId,
-                                                     @Param("offset") int offset,
-                                                     @Param("size") int size);
+    List<CommentEntity> queryVisibleRootByTargetOrderOld(@Param("targetType") TargetType targetType,
+                                                         @Param("targetId") Long targetId,
+                                                         @Param("offset") int offset,
+                                                         @Param("size") int size);
+
+    @Select("""
+            <script>
+            select
+                id,
+                target_type,
+                target_id,
+                user_id,
+                parent_id,
+                reply_to_user_id,
+                content,
+                status,
+                created_at,
+                version
+            from comment
+            where status = 'VISIBLE'
+              and parent_id in
+              <foreach collection='parentIds' item='parentId' open='(' separator=',' close=')'>
+                  #{parentId}
+              </foreach>
+            order by parent_id asc, created_at asc, id asc
+            </script>
+            """)
+    List<CommentEntity> queryVisibleByParentIds(@Param("parentIds") List<Long> parentIds);
+
+    @Select("""
+            <script>
+            select id
+            from comment
+            where parent_id in
+            <foreach collection='parentIds' item='parentId' open='(' separator=',' close=')'>
+                #{parentId}
+            </foreach>
+            </script>
+            """)
+    List<Long> queryChildIdsByParentIds(@Param("parentIds") List<Long> parentIds);
+
+    @Update("""
+            <script>
+            update comment
+            set status = 'HIDDEN',
+                version = version + 1
+            where id in
+            <foreach collection='commentIds' item='commentId' open='(' separator=',' close=')'>
+                #{commentId}
+            </foreach>
+              and status not in ('HIDDEN', 'DELETED')
+            </script>
+            """)
+    int batchHideByIds(@Param("commentIds") List<Long> commentIds);
 
     @Select("""
             select count(1)
@@ -143,4 +195,14 @@ public interface CommentMapper {
               and status = 'VISIBLE'
             """)
     long countVisibleByTarget(@Param("targetType") TargetType targetType, @Param("targetId") Long targetId);
+
+    @Select("""
+            select count(1)
+            from comment
+            where target_type = #{targetType}
+              and target_id = #{targetId}
+              and status = 'VISIBLE'
+              and parent_id is null
+            """)
+    long countVisibleRootByTarget(@Param("targetType") TargetType targetType, @Param("targetId") Long targetId);
 }
