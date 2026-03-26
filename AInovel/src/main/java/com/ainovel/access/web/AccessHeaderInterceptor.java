@@ -44,6 +44,7 @@ public class AccessHeaderInterceptor implements HandlerInterceptor {
         }
         if (path.startsWith(ApiPaths.API_V1)
                 && !path.startsWith(ApiPaths.API_V1 + "/internal")
+                && !path.startsWith(ApiPaths.API_V1_ADMIN)
                 && clientType != ClientType.PC_WEB
                 && clientType != ClientType.H5) {
             throw new BusinessException(StandardErrorCode.INVALID_CLIENT_HEADER, "user path requires X-Client=pc-web|h5");
