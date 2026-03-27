@@ -1,5 +1,7 @@
 package com.ainovel;
 
+// [警告] 缺少必需的类路径条目。请检查项目依赖和构建配置（如pom.xml或build.gradle），确保所有必需依赖已正确添加。
+
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
