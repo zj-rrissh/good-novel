@@ -72,10 +72,15 @@ public class AuditTaskServiceImpl implements AuditTaskService {
                 entity.getBizId(),
                 entity.getAuditStatus(),
                 entity.getRiskLevel(),
+                entity.getContentSnapshot(),
+                entity.getContentHash(),
                 entity.getReasonCode(),
                 entity.getReasonText(),
                 entity.getReviewerId(),
+                entity.getRetryCount(),
+                entity.getRuleVersion(),
                 entity.getReviewedAt(),
-                entity.getCreatedAt());
+                entity.getCreatedAt(),
+                entity.getUpdatedAt());
     }
 }

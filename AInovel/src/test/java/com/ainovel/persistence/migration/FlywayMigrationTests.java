@@ -37,6 +37,7 @@ class FlywayMigrationTests {
                 "reaction",
                 "user_follow",
                 "audit_task",
+                "admin_operation_log",
                 "reading_progress"
         };
         for (String table : expectedTables) {
@@ -57,7 +58,7 @@ class FlywayMigrationTests {
 
         MigrationInfo current = flyway.info().current();
         assertTrue(current != null && current.getVersion() != null);
-        assertEquals("1", current.getVersion().getVersion());
+        assertEquals("2", current.getVersion().getVersion());
     }
 
     @Test

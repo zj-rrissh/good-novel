@@ -13,6 +13,7 @@ import org.springframework.cache.annotation.EnableCaching;
 @EnableCaching
 @ConfigurationPropertiesScan
 @MapperScan(basePackages = {
+        "com.ainovel.admin.mapper",
         "com.ainovel.user.mapper",
         "com.ainovel.novel.mapper",
         "com.ainovel.community.mapper",

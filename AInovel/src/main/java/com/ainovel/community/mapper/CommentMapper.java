@@ -205,4 +205,74 @@ public interface CommentMapper {
               and parent_id is null
             """)
     long countVisibleRootByTarget(@Param("targetType") TargetType targetType, @Param("targetId") Long targetId);
+
+    @Select("""
+            <script>
+            select count(1)
+            from comment
+            where 1 = 1
+            <if test='targetType != null and targetType != ""'>
+                and target_type = #{targetType}
+            </if>
+            <if test='targetId != null'>
+                and target_id = #{targetId}
+            </if>
+            <if test='status != null and status != ""'>
+                and status = #{status}
+            </if>
+            <if test='userId != null'>
+                and user_id = #{userId}
+            </if>
+            <if test='keyword != null and keyword != ""'>
+                and content like concat('%', #{keyword}, '%')
+            </if>
+            </script>
+            """)
+    long countAdminQuery(@Param("targetType") String targetType,
+                         @Param("targetId") Long targetId,
+                         @Param("status") String status,
+                         @Param("userId") Long userId,
+                         @Param("keyword") String keyword);
+
+    @Select("""
+            <script>
+            select
+                id,
+                target_type,
+                target_id,
+                user_id,
+                parent_id,
+                reply_to_user_id,
+                content,
+                status,
+                created_at,
+                version
+            from comment
+            where 1 = 1
+            <if test='targetType != null and targetType != ""'>
+                and target_type = #{targetType}
+            </if>
+            <if test='targetId != null'>
+                and target_id = #{targetId}
+            </if>
+            <if test='status != null and status != ""'>
+                and status = #{status}
+            </if>
+            <if test='userId != null'>
+                and user_id = #{userId}
+            </if>
+            <if test='keyword != null and keyword != ""'>
+                and content like concat('%', #{keyword}, '%')
+            </if>
+            order by created_at desc, id desc
+            limit #{size} offset #{offset}
+            </script>
+            """)
+    List<CommentEntity> queryAdmin(@Param("targetType") String targetType,
+                                   @Param("targetId") Long targetId,
+                                   @Param("status") String status,
+                                   @Param("userId") Long userId,
+                                   @Param("keyword") String keyword,
+                                   @Param("offset") int offset,
+                                   @Param("size") int size);
 }

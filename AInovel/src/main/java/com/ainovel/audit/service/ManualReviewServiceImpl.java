@@ -1,5 +1,6 @@
 package com.ainovel.audit.service;
 
+import com.ainovel.admin.service.AdminOperationLogService;
 import com.ainovel.audit.domain.AuditStatus;
 import com.ainovel.audit.domain.BizType;
 import com.ainovel.audit.domain.ReviewDecision;
@@ -10,6 +11,7 @@ import com.ainovel.audit.mapper.AuditTaskMapper;
 import com.ainovel.audit.vo.AuditTaskVO;
 import com.ainovel.common.api.StandardErrorCode;
 import com.ainovel.infrastructure.exception.BusinessException;
+import com.ainovel.infrastructure.log.AuditAction;
 import com.ainovel.novel.service.NovelAuditService;
 import com.ainovel.security.auth.context.CurrentUserHolder;
 import java.time.LocalDateTime;
@@ -21,10 +23,14 @@ public class ManualReviewServiceImpl implements ManualReviewService {
 
     private final AuditTaskMapper auditTaskMapper;
     private final NovelAuditService novelAuditService;
+    private final AdminOperationLogService adminOperationLogService;
 
-    public ManualReviewServiceImpl(AuditTaskMapper auditTaskMapper, NovelAuditService novelAuditService) {
+    public ManualReviewServiceImpl(AuditTaskMapper auditTaskMapper,
+                                   NovelAuditService novelAuditService,
+                                   AdminOperationLogService adminOperationLogService) {
         this.auditTaskMapper = auditTaskMapper;
         this.novelAuditService = novelAuditService;
+        this.adminOperationLogService = adminOperationLogService;
     }
 
     @Override
@@ -59,6 +65,16 @@ public class ManualReviewServiceImpl implements ManualReviewService {
                     request.rejectReasonText());
         }
 
+        adminOperationLogService.record(
+                AuditAction.AUDIT_MANUAL_DECIDED,
+                "AUDIT_TASK",
+                taskId,
+                task.getAuditStatus().name(),
+                targetStatus.name(),
+                request.rejectReasonText() != null && !request.rejectReasonText().isBlank()
+                        ? request.rejectReasonText()
+                        : request.rejectReasonCode());
+
         AuditTaskEntity reviewed = auditTaskMapper.findById(taskId);
         return new AuditTaskVO(
                 reviewed.getTaskId(),
@@ -66,10 +82,15 @@ public class ManualReviewServiceImpl implements ManualReviewService {
                 reviewed.getBizId(),
                 reviewed.getAuditStatus(),
                 reviewed.getRiskLevel(),
+                reviewed.getContentSnapshot(),
+                reviewed.getContentHash(),
                 reviewed.getReasonCode(),
                 reviewed.getReasonText(),
                 reviewed.getReviewerId(),
+                reviewed.getRetryCount(),
+                reviewed.getRuleVersion(),
                 reviewed.getReviewedAt(),
-                reviewed.getCreatedAt());
+                reviewed.getCreatedAt(),
+                reviewed.getUpdatedAt());
     }
 }

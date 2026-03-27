@@ -1,6 +1,8 @@
 package com.ainovel.novel.service;
 
+import com.ainovel.admin.service.AdminOperationLogService;
 import com.ainovel.common.api.StandardErrorCode;
+import com.ainovel.infrastructure.log.AuditAction;
 import com.ainovel.infrastructure.exception.BusinessException;
 import com.ainovel.novel.domain.NovelStatus;
 import com.ainovel.novel.entity.NovelEntity;
@@ -15,10 +17,14 @@ public class NovelShelfServiceImpl implements NovelShelfService {
 
     private final NovelMapper novelMapper;
     private final NovelDomainSupport novelDomainSupport;
+    private final AdminOperationLogService adminOperationLogService;
 
-    public NovelShelfServiceImpl(NovelMapper novelMapper, NovelDomainSupport novelDomainSupport) {
+    public NovelShelfServiceImpl(NovelMapper novelMapper,
+                                 NovelDomainSupport novelDomainSupport,
+                                 AdminOperationLogService adminOperationLogService) {
         this.novelMapper = novelMapper;
         this.novelDomainSupport = novelDomainSupport;
+        this.adminOperationLogService = adminOperationLogService;
     }
 
     @Override
@@ -46,14 +52,27 @@ public class NovelShelfServiceImpl implements NovelShelfService {
     @Override
     @Transactional
     public void ban(Long novelId, String reason) {
-        novelDomainSupport.requireNovel(novelId);
-        novelMapper.updateStatus(novelId, NovelStatus.BANNED, List.of(
+        NovelEntity novel = novelDomainSupport.requireNovel(novelId);
+        int updated = novelMapper.updateStatus(novelId, NovelStatus.BANNED, List.of(
                 NovelStatus.DRAFT,
                 NovelStatus.PENDING_AUDIT,
                 NovelStatus.REJECTED,
                 NovelStatus.PUBLISHED,
                 NovelStatus.ON_SHELF,
                 NovelStatus.OFF_SHELF));
+        if (updated == 0) {
+            if (novel.getStatus() == NovelStatus.BANNED) {
+                return;
+            }
+            throw new BusinessException(StandardErrorCode.BUSINESS_STATE_INVALID, "novel status does not allow ban");
+        }
+        adminOperationLogService.record(
+                AuditAction.NOVEL_BAN,
+                "NOVEL",
+                novelId,
+                novel.getStatus().name(),
+                NovelStatus.BANNED.name(),
+                reason);
         novelDomainSupport.invalidateNovelCaches(novelId);
     }
 }

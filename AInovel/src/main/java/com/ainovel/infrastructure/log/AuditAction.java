@@ -10,6 +10,7 @@ public enum AuditAction {
     NOVEL_BAN,
     COMMENT_CREATE,
     COMMENT_DELETE,
+    COMMENT_HIDE,
     REACTION_LIKE,
     REACTION_FAVORITE,
     USER_FOLLOW,
