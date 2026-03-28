@@ -61,6 +61,9 @@ public class NovelAuditServiceImpl implements NovelAuditService {
         if (existing != null && List.of(AuditStatus.PENDING, AuditStatus.MANUAL_REVIEW).contains(existing.getAuditStatus())) {
             return String.valueOf(existing.getTaskId());
         }
+        if (existing != null && List.of(AuditStatus.PASS, AuditStatus.REJECT, AuditStatus.FAILED).contains(existing.getAuditStatus())) {
+            return String.valueOf(existing.getTaskId());
+        }
 
         AuditTaskEntity entity = new AuditTaskEntity();
         entity.setBizType(BizType.BIZ_NOVEL_INTRO);
