@@ -121,6 +121,7 @@ public interface AuditTaskMapper {
                 reason_text = #{reasonText},
                 updated_at = current_timestamp(3)
             where task_id = #{taskId}
+              and audit_status = 'PENDING'
             """)
     int updateExecutionResult(@Param("taskId") Long taskId,
                               @Param("auditStatus") AuditStatus auditStatus,

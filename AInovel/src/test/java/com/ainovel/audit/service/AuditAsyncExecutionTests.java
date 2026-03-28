@@ -4,7 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.ainovel.audit.domain.ReviewDecision;
+import com.ainovel.audit.domain.RiskLevel;
 import com.ainovel.audit.domain.AuditStatus;
+import com.ainovel.audit.dto.ReviewAuditTaskRequest;
 import com.ainovel.audit.entity.AuditTaskEntity;
 import com.ainovel.audit.mapper.AuditTaskMapper;
 import com.ainovel.novel.dto.CreateChapterRequest;
@@ -53,6 +56,9 @@ class AuditAsyncExecutionTests {
     @Autowired
     private AuditTaskMapper auditTaskMapper;
 
+    @Autowired
+    private ManualReviewService manualReviewService;
+
     @AfterEach
     void clearCurrentUser() {
         CurrentUserHolder.clear();
@@ -80,6 +86,33 @@ class AuditAsyncExecutionTests {
         assertTrue(
                 Set.of("phase1_async_manual_review", "snapshot_empty").contains(task.getReasonCode()),
                 "expected async executor reason code");
+    }
+
+    @Test
+    void shouldNotOverwriteReviewedTaskWhenAsyncWritebackRunsLate() {
+        String suffix = uniqueSuffix();
+        loginAsAuthor(suffix);
+        SubmissionScenario scenario = createSubmissionScenario(suffix);
+
+        String taskId = novelAuditService.submitAudit(
+                scenario.novel().novelId(),
+                new SubmitNovelAuditRequest(Set.of(scenario.chapter().chapterId()), "async submit"),
+                "audit-" + suffix);
+
+        manualReviewService.review(
+                Long.valueOf(taskId),
+                new ReviewAuditTaskRequest(ReviewDecision.REJECT, "manual_review", "manual review wins"));
+
+        int updatedRows = auditTaskMapper.updateExecutionResult(
+                Long.valueOf(taskId),
+                AuditStatus.MANUAL_REVIEW,
+                RiskLevel.MEDIUM,
+                "phase1_async_manual_review",
+                "late async write");
+        AuditTaskEntity task = auditTaskMapper.findById(Long.valueOf(taskId));
+
+        assertEquals(0, updatedRows);
+        assertEquals(AuditStatus.REJECT, task.getAuditStatus());
     }
 
     private AuditTaskEntity waitForManualReview(Long taskId) throws InterruptedException {

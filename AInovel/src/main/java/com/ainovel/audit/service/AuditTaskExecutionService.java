@@ -40,12 +40,15 @@ public class AuditTaskExecutionService {
         }
 
         AuditExecutionResult result = novelIntroAuditExecutor.execute(toDomain(task));
-        auditTaskMapper.updateExecutionResult(
+        int updatedRows = auditTaskMapper.updateExecutionResult(
                 taskId,
                 result.auditStatus(),
                 result.riskLevel(),
                 result.reasonCode(),
                 result.reasonText());
+        if (updatedRows == 0) {
+            return;
+        }
 
         if (result.auditStatus() == AuditStatus.PASS || result.auditStatus() == AuditStatus.REJECT) {
             novelAuditService.applyAuditResult(
