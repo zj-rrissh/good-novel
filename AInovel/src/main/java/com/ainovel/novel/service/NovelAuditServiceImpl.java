@@ -51,9 +51,6 @@ public class NovelAuditServiceImpl implements NovelAuditService {
         if (chapters.isEmpty()) {
             throw new BusinessException(StandardErrorCode.BUSINESS_STATE_INVALID, "at least one chapter is required for audit");
         }
-        if (!chapters.stream().allMatch(chapter -> List.of(ChapterStatus.DRAFT, ChapterStatus.REJECTED).contains(chapter.getStatus()))) {
-            throw new BusinessException(StandardErrorCode.BUSINESS_STATE_INVALID, "only draft or rejected chapters can be submitted");
-        }
 
         String snapshot = buildSnapshot(novel, chapters, request.reason());
         String contentHash = HashingSupport.sha256(snapshot);
@@ -63,6 +60,9 @@ public class NovelAuditServiceImpl implements NovelAuditService {
         }
         if (existing != null && List.of(AuditStatus.PASS, AuditStatus.REJECT, AuditStatus.FAILED).contains(existing.getAuditStatus())) {
             return String.valueOf(existing.getTaskId());
+        }
+        if (!chapters.stream().allMatch(chapter -> List.of(ChapterStatus.DRAFT, ChapterStatus.REJECTED).contains(chapter.getStatus()))) {
+            throw new BusinessException(StandardErrorCode.BUSINESS_STATE_INVALID, "only draft or rejected chapters can be submitted");
         }
 
         AuditTaskEntity entity = new AuditTaskEntity();
