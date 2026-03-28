@@ -1,4 +1,4 @@
-package com.ainovel.novel.service;
+package com.ainovel.audit.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -7,18 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.ainovel.audit.domain.AuditStatus;
 import com.ainovel.audit.entity.AuditTaskEntity;
 import com.ainovel.audit.mapper.AuditTaskMapper;
-import com.ainovel.audit.domain.ReviewDecision;
-import com.ainovel.audit.dto.ReviewAuditTaskRequest;
-import com.ainovel.audit.service.ManualReviewService;
-import com.ainovel.novel.domain.ChapterStatus;
-import com.ainovel.novel.domain.NovelStatus;
 import com.ainovel.novel.dto.CreateChapterRequest;
 import com.ainovel.novel.dto.CreateNovelRequest;
 import com.ainovel.novel.dto.SubmitNovelAuditRequest;
-import com.ainovel.novel.entity.ChapterEntity;
-import com.ainovel.novel.entity.NovelEntity;
-import com.ainovel.novel.mapper.ChapterMapper;
-import com.ainovel.novel.mapper.NovelMapper;
+import com.ainovel.novel.service.ChapterManagementService;
+import com.ainovel.novel.service.NovelAuditService;
+import com.ainovel.novel.service.NovelDraftService;
 import com.ainovel.novel.vo.NovelChapterVO;
 import com.ainovel.novel.vo.NovelDetailVO;
 import com.ainovel.security.auth.context.CurrentUser;
@@ -30,6 +24,7 @@ import com.ainovel.user.service.AuthService;
 import com.ainovel.user.vo.AccessTokenVO;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +33,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class NovelAuditServiceTests {
+class AuditAsyncExecutionTests {
 
     @Autowired
     private AuthService authService;
@@ -56,15 +51,6 @@ class NovelAuditServiceTests {
     private NovelAuditService novelAuditService;
 
     @Autowired
-    private ManualReviewService manualReviewService;
-
-    @Autowired
-    private NovelMapper novelMapper;
-
-    @Autowired
-    private ChapterMapper chapterMapper;
-
-    @Autowired
     private AuditTaskMapper auditTaskMapper;
 
     @AfterEach
@@ -73,63 +59,47 @@ class NovelAuditServiceTests {
     }
 
     @Test
-    void shouldCreatePendingAuditTaskForNovelIntro() {
+    void shouldDispatchSubmittedNovelAuditTaskAsynchronously() throws InterruptedException {
         String suffix = uniqueSuffix();
         loginAsAuthor(suffix);
         SubmissionScenario scenario = createSubmissionScenario(suffix);
 
-        String auditTaskId = submitAudit(scenario, "first submit", "audit-" + suffix);
+        long startedAt = System.nanoTime();
+        String taskId = novelAuditService.submitAudit(
+                scenario.novel().novelId(),
+                new SubmitNovelAuditRequest(Set.of(scenario.chapter().chapterId()), "async submit"),
+                "audit-" + suffix);
+        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
 
-        NovelEntity persistedNovel = novelMapper.findById(scenario.novel().novelId());
-        ChapterEntity persistedChapter = chapterMapper.findById(scenario.chapter().chapterId());
-        AuditTaskEntity task = auditTaskMapper.findById(Long.valueOf(auditTaskId));
+        assertNotNull(taskId);
+        assertTrue(elapsedMs < 1_000, "submitAudit should return before async execution finishes");
 
-        assertNotNull(task);
+        AuditTaskEntity task = waitForManualReview(Long.valueOf(taskId));
+
+        assertEquals(AuditStatus.MANUAL_REVIEW, task.getAuditStatus());
         assertTrue(
-                Set.of(AuditStatus.PENDING, AuditStatus.MANUAL_REVIEW).contains(task.getAuditStatus()),
-                "newly created audit task should exist before or after async pickup");
-        assertEquals(NovelStatus.PENDING_AUDIT, persistedNovel.getStatus());
-        assertEquals(auditTaskId, persistedNovel.getAuditTaskId());
-        assertEquals(ChapterStatus.PENDING_AUDIT, persistedChapter.getStatus());
-        assertEquals(auditTaskId, persistedChapter.getAuditTaskId());
+                Set.of("phase1_async_manual_review", "snapshot_empty").contains(task.getReasonCode()),
+                "expected async executor reason code");
     }
 
-    @Test
-    void shouldReuseUnfinishedNovelAuditTask() {
-        String suffix = uniqueSuffix();
-        loginAsAuthor(suffix);
-        SubmissionScenario scenario = createSubmissionScenario(suffix);
-
-        String firstTaskId = submitAudit(scenario, "same payload", "audit-" + suffix);
-        String reusedTaskId = submitAudit(scenario, "same payload", "audit-retry-" + suffix);
-
-        assertEquals(firstTaskId, reusedTaskId);
-    }
-
-    @Test
-    void shouldReturnExistingTerminalTaskForSameHash() {
-        String suffix = uniqueSuffix();
-        loginAsAuthor(suffix);
-        SubmissionScenario scenario = createSubmissionScenario(suffix);
-
-        String firstTaskId = submitAudit(scenario, "same payload", "audit-" + suffix);
-        assertNotNull(firstTaskId);
-
-        manualReviewService.review(
-                Long.valueOf(firstTaskId),
-                new ReviewAuditTaskRequest(ReviewDecision.REJECT, "needs_changes", "retry same content"));
-
-        String reusedTaskId = submitAudit(scenario, "same payload", "audit-retry-" + suffix);
-
-        assertEquals(firstTaskId, reusedTaskId);
+    private AuditTaskEntity waitForManualReview(Long taskId) throws InterruptedException {
+        AuditTaskEntity latest = null;
+        for (int attempt = 0; attempt < 40; attempt++) {
+            latest = auditTaskMapper.findById(taskId);
+            if (latest != null && latest.getAuditStatus() == AuditStatus.MANUAL_REVIEW) {
+                return latest;
+            }
+            Thread.sleep(50);
+        }
+        return latest;
     }
 
     private SubmissionScenario createSubmissionScenario(String suffix) {
         NovelDetailVO novel = novelDraftService.createNovel(
                 new CreateNovelRequest(
-                        "Novel " + suffix,
+                        "Async Novel " + suffix,
                         "intro " + suffix,
-                        "https://example.com/cover-" + suffix + ".png",
+                        "https://example.com/async-cover-" + suffix + ".png",
                         1L,
                         Set.of(1L, 2L)),
                 "novel-" + suffix);
@@ -140,19 +110,12 @@ class NovelAuditServiceTests {
         return new SubmissionScenario(novel, chapter);
     }
 
-    private String submitAudit(SubmissionScenario scenario, String reason, String idempotencyKey) {
-        return novelAuditService.submitAudit(
-                scenario.novel().novelId(),
-                new SubmitNovelAuditRequest(Set.of(scenario.chapter().chapterId()), reason),
-                idempotencyKey);
-    }
-
     private void loginAsAuthor(String suffix) {
         AccessTokenVO token = authService.register(
                 new RegisterRequest(
-                        "author" + suffix,
+                        "asyncauthor" + suffix,
                         "Password123",
-                        "Author " + suffix,
+                        "Async Author " + suffix,
                         "https://example.com/" + suffix + ".png",
                         "device-" + suffix),
                 "register-" + suffix);

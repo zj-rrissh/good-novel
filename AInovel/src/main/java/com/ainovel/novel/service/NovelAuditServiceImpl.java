@@ -4,6 +4,7 @@ import com.ainovel.audit.domain.AuditStatus;
 import com.ainovel.audit.domain.BizType;
 import com.ainovel.audit.domain.RiskLevel;
 import com.ainovel.audit.entity.AuditTaskEntity;
+import com.ainovel.audit.event.AuditTaskSubmittedEvent;
 import com.ainovel.audit.mapper.AuditTaskMapper;
 import com.ainovel.common.api.StandardErrorCode;
 import com.ainovel.infrastructure.exception.BusinessException;
@@ -21,6 +22,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,15 +33,18 @@ public class NovelAuditServiceImpl implements NovelAuditService {
     private final NovelMapper novelMapper;
     private final ChapterMapper chapterMapper;
     private final NovelDomainSupport novelDomainSupport;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public NovelAuditServiceImpl(AuditTaskMapper auditTaskMapper,
                                  NovelMapper novelMapper,
                                  ChapterMapper chapterMapper,
-                                 NovelDomainSupport novelDomainSupport) {
+                                 NovelDomainSupport novelDomainSupport,
+                                 ApplicationEventPublisher applicationEventPublisher) {
         this.auditTaskMapper = auditTaskMapper;
         this.novelMapper = novelMapper;
         this.chapterMapper = chapterMapper;
         this.novelDomainSupport = novelDomainSupport;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Override
@@ -84,6 +89,7 @@ public class NovelAuditServiceImpl implements NovelAuditService {
                 auditTaskId,
                 ChapterStatus.PENDING_AUDIT,
                 List.of(ChapterStatus.DRAFT, ChapterStatus.REJECTED));
+        applicationEventPublisher.publishEvent(new AuditTaskSubmittedEvent(entity.getTaskId()));
         novelDomainSupport.invalidateNovelCaches(novelId, chapterIds);
         return auditTaskId;
     }

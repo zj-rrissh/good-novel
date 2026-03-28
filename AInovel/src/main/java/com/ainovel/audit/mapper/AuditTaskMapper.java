@@ -112,4 +112,19 @@ public interface AuditTaskMapper {
                @Param("reasonText") String reasonText,
                @Param("reviewerId") Long reviewerId,
                @Param("reviewedAt") LocalDateTime reviewedAt);
+
+    @Update("""
+            update audit_task
+            set audit_status = #{auditStatus},
+                risk_level = #{riskLevel},
+                reason_code = #{reasonCode},
+                reason_text = #{reasonText},
+                updated_at = current_timestamp(3)
+            where task_id = #{taskId}
+            """)
+    int updateExecutionResult(@Param("taskId") Long taskId,
+                              @Param("auditStatus") AuditStatus auditStatus,
+                              @Param("riskLevel") RiskLevel riskLevel,
+                              @Param("reasonCode") String reasonCode,
+                              @Param("reasonText") String reasonText);
 }
