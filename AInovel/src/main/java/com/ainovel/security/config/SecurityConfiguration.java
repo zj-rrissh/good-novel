@@ -44,7 +44,9 @@ public class SecurityConfiguration {
                             "/api/v1/auth/logout",
                             "/api/v1/comments/**",
                             "/api/v1/reactions/**",
-                            "/api/v1/reading-progress").authenticated();
+                            "/api/v1/reading-progress",
+                            "/api/v1/bookmarks",
+                            "/api/v1/reading-history").authenticated();
                     authorize.requestMatchers(HttpMethod.POST,
                             "/api/v1/users/*/follow",
                             "/api/v1/users/*/unfollow",
@@ -52,7 +54,11 @@ public class SecurityConfiguration {
                             "/api/v1/novels/*/chapters",
                             "/api/v1/novels/*/submit-audit",
                             "/api/v1/novels/*/on-shelf",
-                            "/api/v1/novels/*/off-shelf").authenticated();
+                            "/api/v1/novels/*/off-shelf",
+                            "/api/v1/bookmarks").authenticated();
+                    authorize.requestMatchers(HttpMethod.DELETE,
+                            "/api/v1/bookmarks/*",
+                            "/api/v1/reading-history/*").authenticated();
                     authorize.requestMatchers(HttpMethod.PUT, "/api/v1/novels/*", "/api/v1/chapters/*").authenticated();
                     authorize.anyRequest().denyAll();
                 })

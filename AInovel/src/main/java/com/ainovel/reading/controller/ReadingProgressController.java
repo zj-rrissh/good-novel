@@ -9,6 +9,7 @@ import com.ainovel.infrastructure.aop.idempotent.IdempotentStrategy;
 import com.ainovel.infrastructure.aop.lock.Lock;
 import com.ainovel.infrastructure.exception.BusinessException;
 import com.ainovel.reading.service.ProgressService;
+import com.ainovel.reading.service.ReadingHistoryService;
 import com.ainovel.reading.dto.UpdateReadingProgressRequest;
 import com.ainovel.reading.vo.ReadingProgressVO;
 import com.ainovel.security.auth.context.CurrentUserHolder;
@@ -29,9 +30,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class ReadingProgressController {
 
     private final ProgressService progressService;
+    private final ReadingHistoryService readingHistoryService;
 
-    public ReadingProgressController(ProgressService progressService) {
+    public ReadingProgressController(ProgressService progressService, ReadingHistoryService readingHistoryService) {
         this.progressService = progressService;
+        this.readingHistoryService = readingHistoryService;
     }
 
     @GetMapping("/reading-progress")
@@ -45,7 +48,10 @@ public class ReadingProgressController {
     public Result<ReadingProgressVO> saveProgress(@Valid @RequestBody UpdateReadingProgressRequest request,
                                                   @RequestHeader(value = RequestHeaders.IDEMPOTENCY_KEY, required = false)
                                                   String idempotencyKey) {
-        return Result.success(progressService.saveProgress(currentUserId(), request, idempotencyKey));
+        Long userId = currentUserId();
+        ReadingProgressVO result = progressService.saveProgress(userId, request, idempotencyKey);
+        readingHistoryService.recordHistory(userId, request.novelId(), request.chapterId());
+        return Result.success(result);
     }
 
     private Long currentUserId() {
