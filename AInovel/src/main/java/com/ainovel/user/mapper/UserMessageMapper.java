@@ -72,6 +72,14 @@ public interface UserMessageMapper {
                                         @Param("offset") int offset,
                                         @Param("size") int size);
 
+    @Select("""
+            select count(1)
+            from user_message
+            where to_user_id = #{userId}
+              and read_at is null
+            """)
+    long countUnread(@Param("userId") Long userId);
+
     @Update("""
             <script>
             update user_message

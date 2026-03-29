@@ -55,6 +55,11 @@ public class UserMessageServiceImpl implements UserMessageService {
         userMessageMapper.insert(entity);
     }
 
+    @Override
+    public long countUnread(Long userId) {
+        return userMessageMapper.countUnread(userId);
+    }
+
     private MessageType parseType(String type) {
         if (type == null || type.isBlank()) {
             return null;

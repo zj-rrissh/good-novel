@@ -10,6 +10,7 @@ import com.ainovel.security.auth.context.CurrentUserHolder;
 import com.ainovel.user.service.UserMessageService;
 import com.ainovel.user.domain.MessageType;
 import com.ainovel.user.dto.MarkMessagesReadRequest;
+import com.ainovel.user.vo.UnreadCountVO;
 import com.ainovel.user.vo.UserMessageVO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -41,6 +42,11 @@ public class UserMessageController {
                                                              @RequestParam(required = false) String type,
                                                              @RequestParam(required = false) Boolean readStatus) {
         return Result.success(userMessageService.queryMessages(currentUserId(), page, size, type, readStatus));
+    }
+
+    @GetMapping("/unread-count")
+    public Result<UnreadCountVO> unreadCount() {
+        return Result.success(new UnreadCountVO(userMessageService.countUnread(currentUserId())));
     }
 
     @PostMapping("/read")

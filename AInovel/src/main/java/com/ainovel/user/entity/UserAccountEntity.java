@@ -11,6 +11,8 @@ public class UserAccountEntity {
     private UserStatus status;
     private String roles;
     private Long loginVersion;
+    private Integer failedLoginCount;
+    private LocalDateTime lockedUntil;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -60,6 +62,22 @@ public class UserAccountEntity {
 
     public void setLoginVersion(Long loginVersion) {
         this.loginVersion = loginVersion;
+    }
+
+    public Integer getFailedLoginCount() {
+        return failedLoginCount;
+    }
+
+    public void setFailedLoginCount(Integer failedLoginCount) {
+        this.failedLoginCount = failedLoginCount;
+    }
+
+    public LocalDateTime getLockedUntil() {
+        return lockedUntil;
+    }
+
+    public void setLockedUntil(LocalDateTime lockedUntil) {
+        this.lockedUntil = lockedUntil;
     }
 
     public LocalDateTime getCreatedAt() {

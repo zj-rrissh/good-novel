@@ -12,4 +12,6 @@ public interface UserMessageService {
     void markRead(Long userId, MarkMessagesReadRequest request);
 
     void deliver(String idempotencyKey, DeliverMessageRequest request);
+
+    long countUnread(Long userId);
 }

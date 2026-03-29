@@ -39,7 +39,8 @@ class FlywayMigrationTests {
                 "audit_task",
                 "reading_progress",
                 "bookmark",
-                "reading_history"
+                "reading_history",
+                "user_login_record"
         };
         for (String table : expectedTables) {
             Integer tableCount = jdbcTemplate.queryForObject(
@@ -59,7 +60,7 @@ class FlywayMigrationTests {
 
         MigrationInfo current = flyway.info().current();
         assertTrue(current != null && current.getVersion() != null);
-        assertEquals("2", current.getVersion().getVersion());
+        assertEquals("3", current.getVersion().getVersion());
     }
 
     @Test
