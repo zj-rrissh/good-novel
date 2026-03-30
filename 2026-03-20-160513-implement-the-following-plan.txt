@@ -7,7 +7,7 @@
 │                 ▘▘ ▝▝                 │                                      │
 │                                       │                                      │
 │    Sonnet 4.6 · API Usage Billing     │                                      │
-│   /mnt/d/MyProgram/AI-novel/AInovel   │                                      │
+│   /mnt/d/MyProgram/AI-novel   │                                      │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 
   ↑ Opus now defaults to 1M context · 5x more room, same pricing
@@ -545,7 +545,7 @@
      [ERROR] The build could not read 1 project -> [Help 1]
      [ERROR]   
      [ERROR]   The project com:AInovel:0.0.1-SNAPSHOT 
-     (/mnt/d/MyProgram/AI-novel/AInovel/pom.xml) has 1 error
+     (/mnt/d/MyProgram/AI-novel/pom.xml) has 1 error
      [ERROR]     'dependencies.dependency.version' for 
      org.springframework.boot:spring-boot-starter-aop:jar is missing. @ line 40,
       column 21
