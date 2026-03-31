@@ -3,6 +3,7 @@ package com.ainovel.community.service;
 import com.ainovel.common.api.StandardErrorCode;
 import com.ainovel.community.domain.ReactionType;
 import com.ainovel.community.domain.TargetType;
+import com.ainovel.community.mapper.CommunityPartitionMapper;
 import com.ainovel.community.mapper.CommentMapper;
 import com.ainovel.community.mapper.ReactionMapper;
 import com.ainovel.community.mapper.UserFollowMapper;
@@ -22,17 +23,20 @@ public class CounterServiceImpl implements CounterService {
     private final CommentMapper commentMapper;
     private final ReactionMapper reactionMapper;
     private final UserFollowMapper userFollowMapper;
+    private final CommunityPartitionMapper communityPartitionMapper;
     private final NovelMapper novelMapper;
     private final ChapterMapper chapterMapper;
 
     public CounterServiceImpl(CommentMapper commentMapper,
                               ReactionMapper reactionMapper,
                               UserFollowMapper userFollowMapper,
+                              CommunityPartitionMapper communityPartitionMapper,
                               NovelMapper novelMapper,
                               ChapterMapper chapterMapper) {
         this.commentMapper = commentMapper;
         this.reactionMapper = reactionMapper;
         this.userFollowMapper = userFollowMapper;
+        this.communityPartitionMapper = communityPartitionMapper;
         this.novelMapper = novelMapper;
         this.chapterMapper = chapterMapper;
     }
@@ -86,6 +90,12 @@ public class CounterServiceImpl implements CounterService {
                     throw new BusinessException(StandardErrorCode.INVALID_REQUEST, "chapter novel does not exist");
                 }
                 yield novel.getAuthorId();
+            }
+            case PARTITION -> {
+                if (!communityPartitionMapper.existsActiveById(targetId)) {
+                    throw new BusinessException(StandardErrorCode.INVALID_REQUEST, "partition target does not exist");
+                }
+                yield null;
             }
         };
     }

@@ -5,6 +5,7 @@ import com.ainovel.community.domain.FollowStatus;
 import com.ainovel.community.domain.ReactionStatus;
 import com.ainovel.community.domain.ReactionType;
 import com.ainovel.community.dto.ToggleReactionRequest;
+import com.ainovel.community.mapper.CommunityPartitionMapper;
 import com.ainovel.community.entity.ReactionEntity;
 import com.ainovel.community.entity.UserFollowEntity;
 import com.ainovel.community.mapper.ReactionMapper;
@@ -23,17 +24,20 @@ public class ReactionServiceImpl implements ReactionService {
 
     private final ReactionMapper reactionMapper;
     private final UserFollowMapper userFollowMapper;
+    private final CommunityPartitionMapper communityPartitionMapper;
     private final NovelMapper novelMapper;
     private final ChapterMapper chapterMapper;
     private final UserAccountMapper userAccountMapper;
 
     public ReactionServiceImpl(ReactionMapper reactionMapper,
                                UserFollowMapper userFollowMapper,
+                               CommunityPartitionMapper communityPartitionMapper,
                                NovelMapper novelMapper,
                                ChapterMapper chapterMapper,
                                UserAccountMapper userAccountMapper) {
         this.reactionMapper = reactionMapper;
         this.userFollowMapper = userFollowMapper;
+        this.communityPartitionMapper = communityPartitionMapper;
         this.novelMapper = novelMapper;
         this.chapterMapper = chapterMapper;
         this.userAccountMapper = userAccountMapper;
@@ -87,6 +91,7 @@ public class ReactionServiceImpl implements ReactionService {
         boolean exists = switch (request.targetType()) {
             case NOVEL -> novelMapper.findById(request.targetId()) != null;
             case CHAPTER -> chapterMapper.findById(request.targetId()) != null;
+            case PARTITION -> communityPartitionMapper.existsActiveById(request.targetId());
         };
         if (!exists) {
             throw new BusinessException(StandardErrorCode.INVALID_REQUEST, "reaction target does not exist");

@@ -6,6 +6,7 @@ import com.ainovel.community.domain.CommentStatus;
 import com.ainovel.community.domain.TargetType;
 import com.ainovel.community.dto.CreateCommentRequest;
 import com.ainovel.community.entity.CommentEntity;
+import com.ainovel.community.mapper.CommunityPartitionMapper;
 import com.ainovel.community.mapper.CommentMapper;
 import com.ainovel.community.vo.CommentVO;
 import com.ainovel.infrastructure.exception.BusinessException;
@@ -27,13 +28,16 @@ public class CommentServiceImpl implements CommentService {
     private static final Duration DUPLICATE_WINDOW = Duration.ofSeconds(30);
 
     private final CommentMapper commentMapper;
+    private final CommunityPartitionMapper communityPartitionMapper;
     private final NovelMapper novelMapper;
     private final ChapterMapper chapterMapper;
 
     public CommentServiceImpl(CommentMapper commentMapper,
+                              CommunityPartitionMapper communityPartitionMapper,
                               NovelMapper novelMapper,
                               ChapterMapper chapterMapper) {
         this.commentMapper = commentMapper;
+        this.communityPartitionMapper = communityPartitionMapper;
         this.novelMapper = novelMapper;
         this.chapterMapper = chapterMapper;
     }
@@ -133,6 +137,7 @@ public class CommentServiceImpl implements CommentService {
         boolean exists = switch (targetType) {
             case NOVEL -> novelMapper.findById(targetId) != null;
             case CHAPTER -> chapterMapper.findById(targetId) != null;
+            case PARTITION -> communityPartitionMapper.existsActiveById(targetId);
         };
         if (!exists) {
             throw new BusinessException(StandardErrorCode.INVALID_REQUEST);

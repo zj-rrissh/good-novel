@@ -33,6 +33,7 @@ class FlywayMigrationTests {
                 "user_message",
                 "novel",
                 "novel_chapter",
+                "novel_community_partition",
                 "comment",
                 "reaction",
                 "user_follow",
@@ -60,7 +61,7 @@ class FlywayMigrationTests {
 
         MigrationInfo current = flyway.info().current();
         assertTrue(current != null && current.getVersion() != null);
-        assertEquals("3", current.getVersion().getVersion());
+        assertEquals("5", current.getVersion().getVersion());
     }
 
     @Test

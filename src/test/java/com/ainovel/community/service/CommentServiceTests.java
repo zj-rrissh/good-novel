@@ -233,6 +233,37 @@ class CommentServiceTests {
         assertEquals(StandardErrorCode.INVALID_REQUEST, exception.getErrorCode());
     }
 
+    @Test
+    void shouldCreateAndQueryPartitionComments() {
+        insertUser(91L, "partition-owner-91");
+        insertUser(92L, "partition-reader-92");
+        insertNovel(1009L, 91L);
+        Long partitionId = insertPartition(1009L, "PLOT", "剧情讨论", 10);
+        loginAs(92L);
+
+        commentService.createComment(
+                new CreateCommentRequest(TargetType.PARTITION, partitionId, "分区留言", null, null),
+                "comment-create-partition-1");
+
+        PageResponse<CommentVO> page = commentService.queryComments(TargetType.PARTITION, partitionId, 1, 20, "new");
+        assertEquals(1L, page.total());
+        assertEquals(1, page.records().size());
+        assertEquals("分区留言", page.records().get(0).content());
+    }
+
+    @Test
+    void shouldRejectPartitionCommentWhenPartitionDoesNotExist() {
+        insertUser(93L, "partition-reader-93");
+        loginAs(93L);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> commentService.createComment(
+                        new CreateCommentRequest(TargetType.PARTITION, 99999L, "分区留言", null, null),
+                        "comment-create-partition-2"));
+        assertEquals(StandardErrorCode.INVALID_REQUEST, exception.getErrorCode());
+    }
+
     private Long insertComment(TargetType targetType,
                                Long targetId,
                                Long userId,
@@ -290,6 +321,20 @@ class CommentServiceTests {
                 novelId,
                 authorId,
                 "novel-" + novelId);
+    }
+
+    private Long insertPartition(Long novelId, String partitionKey, String partitionName, int sortOrder) {
+        jdbcTemplate.update(
+                """
+                        insert into novel_community_partition (
+                            novel_id, partition_key, partition_name, sort_order, status, created_at, updated_at
+                        ) values (?, ?, ?, ?, 'ACTIVE', current_timestamp, current_timestamp)
+                        """,
+                novelId,
+                partitionKey,
+                partitionName,
+                sortOrder);
+        return jdbcTemplate.queryForObject("select max(id) from novel_community_partition", Long.class);
     }
 
     private void loginAs(Long userId) {
