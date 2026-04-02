@@ -3,6 +3,7 @@ package com.ainovel.recommend.service;
 import com.ainovel.community.domain.ReactionType;
 import com.ainovel.community.domain.TargetType;
 import com.ainovel.community.mapper.ReactionMapper;
+import com.ainovel.novel.domain.Category;
 import com.ainovel.novel.domain.NovelStatus;
 import com.ainovel.novel.entity.NovelEntity;
 import com.ainovel.novel.mapper.NovelMapper;
@@ -185,7 +186,7 @@ public class RecommendQueryServiceImpl implements RecommendQueryService {
     }
 
     private String formatCategory(Long categoryId) {
-        return categoryId == null ? null : "category-" + categoryId;
+        return Category.getNameById(categoryId);
     }
 
     private String formatTagsSummary(NovelStatus status, Long wordCount) {

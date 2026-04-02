@@ -29,32 +29,32 @@ WHERE ${seed_demo_enabled} = 1
   AND NOT EXISTS (SELECT 1 FROM user_profile WHERE user_id = 1003);
 
 INSERT INTO novel (id, author_id, title, intro, cover_url, category_id, tag_ids, status, latest_chapter_id, word_count, audit_task_id)
-SELECT 1, 1002, 'sample novel', 'A starter fantasy story for homepage and detail-page smoke testing.', 'https://example.com/cover.png', 1, '1,2,3', 'ON_SHELF', 11001, 2180, NULL
+SELECT 1, 1002, 'sample novel', 'A starter fantasy story for homepage and detail-page smoke testing.', 'https://example.com/cover.png', 1001, '1,2,3', 'ON_SHELF', 11001, 2180, NULL
 WHERE ${seed_demo_enabled} = 1
   AND NOT EXISTS (SELECT 1 FROM novel WHERE id = 1);
 
 INSERT INTO novel (id, author_id, title, intro, cover_url, category_id, tag_ids, status, latest_chapter_id, word_count, audit_task_id)
-SELECT 2, 1002, 'Clockwork Frontier', 'When steam engines learn to dream, the border city stops sleeping.', 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=720&q=80', 2, '2,5,8', 'ON_SHELF', 11002, 2640, NULL
+SELECT 2, 1002, 'Clockwork Frontier', 'When steam engines learn to dream, the border city stops sleeping.', 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=720&q=80', 1002, '2,5,8', 'ON_SHELF', 11002, 2640, NULL
 WHERE ${seed_demo_enabled} = 1
   AND NOT EXISTS (SELECT 1 FROM novel WHERE id = 2);
 
 INSERT INTO novel (id, author_id, title, intro, cover_url, category_id, tag_ids, status, latest_chapter_id, word_count, audit_task_id)
-SELECT 3, 1002, 'Ocean of Ash', 'An exiled navigator returns to map a sea that burns at night.', 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=720&q=80', 3, '3,6,9', 'ON_SHELF', 11003, 2310, NULL
+SELECT 3, 1002, 'Ocean of Ash', 'An exiled navigator returns to map a sea that burns at night.', 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=720&q=80', 1003, '3,6,9', 'ON_SHELF', 11003, 2310, NULL
 WHERE ${seed_demo_enabled} = 1
   AND NOT EXISTS (SELECT 1 FROM novel WHERE id = 3);
 
 INSERT INTO novel (id, author_id, title, intro, cover_url, category_id, tag_ids, status, latest_chapter_id, word_count, audit_task_id)
-SELECT 4, 1002, 'Last Light Academy', 'A failing student discovers the school library can rewrite fate.', 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=720&q=80', 4, '4,7,10', 'ON_SHELF', 11004, 2890, NULL
+SELECT 4, 1002, 'Last Light Academy', 'A failing student discovers the school library can rewrite fate.', 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=720&q=80', 1004, '4,7,10', 'ON_SHELF', 11004, 2890, NULL
 WHERE ${seed_demo_enabled} = 1
   AND NOT EXISTS (SELECT 1 FROM novel WHERE id = 4);
 
 INSERT INTO novel (id, author_id, title, intro, cover_url, category_id, tag_ids, status, latest_chapter_id, word_count, audit_task_id)
-SELECT 5, 1002, 'Night Market Chronicles', 'Each midnight bargain grants power and takes a memory.', 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=720&q=80', 5, '5,11,12', 'ON_SHELF', 11005, 2475, NULL
+SELECT 5, 1002, 'Night Market Chronicles', 'Each midnight bargain grants power and takes a memory.', 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=720&q=80', 1005, '5,11,12', 'ON_SHELF', 11005, 2475, NULL
 WHERE ${seed_demo_enabled} = 1
   AND NOT EXISTS (SELECT 1 FROM novel WHERE id = 5);
 
 INSERT INTO novel (id, author_id, title, intro, cover_url, category_id, tag_ids, status, latest_chapter_id, word_count, audit_task_id)
-SELECT 6, 1002, 'Starrail Apothecary', 'A healer rides orbital trains to cure worlds under quarantine.', 'https://images.unsplash.com/photo-1513128034602-7814ccaddd4e?auto=format&fit=crop&w=720&q=80', 6, '6,13,14', 'ON_SHELF', 11006, 2760, NULL
+SELECT 6, 1002, 'Starrail Apothecary', 'A healer rides orbital trains to cure worlds under quarantine.', 'https://images.unsplash.com/photo-1513128034602-7814ccaddd4e?auto=format&fit=crop&w=720&q=80', 1006, '6,13,14', 'ON_SHELF', 11006, 2760, NULL
 WHERE ${seed_demo_enabled} = 1
   AND NOT EXISTS (SELECT 1 FROM novel WHERE id = 6);
 

@@ -6,6 +6,7 @@ import com.ainovel.cache.support.UnifiedCacheManager;
 import com.ainovel.common.api.PageResponse;
 import com.ainovel.common.api.StandardErrorCode;
 import com.ainovel.infrastructure.exception.BusinessException;
+import com.ainovel.novel.domain.Category;
 import com.ainovel.novel.domain.NovelStatus;
 import com.ainovel.novel.entity.ChapterEntity;
 import com.ainovel.novel.entity.NovelEntity;
@@ -97,7 +98,7 @@ public class NovelReadServiceImpl implements NovelReadService {
                 novel.getIntro(),
                 novel.getCoverUrl(),
                 authorName,
-                novel.getCategoryId() == null ? null : "category-" + novel.getCategoryId(),
+                Category.getNameById(novel.getCategoryId()),
                 tags,
                 novel.getLatestChapterId()));
     }
