@@ -1,6 +1,36 @@
-ALTER TABLE user_account
-    ADD COLUMN IF NOT EXISTS failed_login_count INT NOT NULL DEFAULT 0,
-    ADD COLUMN IF NOT EXISTS locked_until DATETIME(3) DEFAULT NULL;
+SET @add_failed_login_count = (
+    SELECT IF(
+        EXISTS(
+            SELECT 1
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'user_account'
+              AND COLUMN_NAME = 'failed_login_count'
+        ),
+        'SELECT 1',
+        'ALTER TABLE user_account ADD COLUMN failed_login_count INT NOT NULL DEFAULT 0'
+    )
+);
+PREPARE stmt_add_failed_login_count FROM @add_failed_login_count;
+EXECUTE stmt_add_failed_login_count;
+DEALLOCATE PREPARE stmt_add_failed_login_count;
+
+SET @add_locked_until = (
+    SELECT IF(
+        EXISTS(
+            SELECT 1
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'user_account'
+              AND COLUMN_NAME = 'locked_until'
+        ),
+        'SELECT 1',
+        'ALTER TABLE user_account ADD COLUMN locked_until DATETIME(3) DEFAULT NULL'
+    )
+);
+PREPARE stmt_add_locked_until FROM @add_locked_until;
+EXECUTE stmt_add_locked_until;
+DEALLOCATE PREPARE stmt_add_locked_until;
 
 CREATE TABLE IF NOT EXISTS user_login_record (
     id BIGINT NOT NULL AUTO_INCREMENT,

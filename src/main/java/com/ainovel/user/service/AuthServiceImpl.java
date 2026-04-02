@@ -1,5 +1,18 @@
 package com.ainovel.user.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.ainovel.common.api.PageResponse;
 import com.ainovel.common.api.StandardErrorCode;
 import com.ainovel.infrastructure.exception.BusinessException;
@@ -26,17 +39,6 @@ import com.ainovel.user.service.support.AuthRefreshSession;
 import com.ainovel.user.service.support.AuthSessionService;
 import com.ainovel.user.vo.AccessTokenVO;
 import com.ainovel.user.vo.LoginRecordVO;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.dao.DuplicateKeyException;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -78,7 +80,7 @@ public class AuthServiceImpl implements AuthService {
         accountEntity.setUsername(request.username().trim());
         accountEntity.setPasswordHash(passwordEncoder.encode(request.password()));
         accountEntity.setStatus(UserStatus.NORMAL);
-        accountEntity.setRoles(DelimitedValueCodec.formatUserRoles(Set.of(UserRole.USER, UserRole.AUTHOR)));
+        accountEntity.setRoles(DelimitedValueCodec.formatUserRoles(Set.of(UserRole.USER)));
         accountEntity.setLoginVersion(1L);
         try {
             userAccountMapper.insert(accountEntity);

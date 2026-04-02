@@ -1,0 +1,10 @@
+.git
+.gitignore
+.idea
+.worktrees
+*.md
+*.png
+.dockerignore
+Dockerfile
+.env.docker.local
+.env.docker.local.example

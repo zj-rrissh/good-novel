@@ -1,0 +1,32 @@
+FROM eclipse-temurin:17-jre-alpine
+
+LABEL maintainer="ainovel-team"
+LABEL description="AI Novel Platform Backend"
+
+RUN addgroup -S app && adduser -S app -G app
+
+WORKDIR /app
+
+COPY target/AInovel-*.jar app.jar
+
+RUN ls -lh /app/app.jar
+
+ENV JAVA_OPTS="-XX:+UseG1GC \
+    -XX:MaxRAMPercentage=75.0 \
+    -XX:InitialRAMPercentage=50.0 \
+    -XX:+UseContainerSupport \
+    -Djava.security.egd=file:/dev/./urandom \
+    -Dfile.encoding=UTF-8 \
+    -Duser.timezone=Asia/Shanghai"
+
+ENV SERVER_PORT=8080
+ENV SPRING_PROFILES_ACTIVE=default
+
+EXPOSE ${SERVER_PORT}
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget -qO- http://localhost:${SERVER_PORT}/actuator/health || exit 1
+
+USER app
+
+ENTRYPOINT ["sh", "-c", "exec java ${JAVA_OPTS} -jar app.jar"]

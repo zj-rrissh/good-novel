@@ -1,29 +1,5 @@
 
 services:
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.simple
-    restart: unless-stopped
-    env_file:
-      - ./.env.docker.local
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      AINOVEL_DB_URL: jdbc:mysql://mysql:3306/ainovel?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-      AINOVEL_DB_USERNAME: ${MYSQL_USER:-ainovel}
-      AINOVEL_DB_PASSWORD: ${MYSQL_PASSWORD:-ainovel123}
-      AINOVEL_REDIS_HOST: redis
-      AINOVEL_REDIS_PORT: 6379
-      AINOVEL_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      AINOVEL_REDIS_ADDRESS: redis://redis:6379
-    ports:
-      - "8080:8080"
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
   mysql:
     image: mysql:8.4
     restart: unless-stopped
@@ -32,8 +8,6 @@ services:
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_0900_ai_ci
-    ports:
-      - "3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -56,8 +30,6 @@ services:
           exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD";
         fi
         exec redis-server --appendonly yes;
-    ports:
-      - "6380:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -71,16 +43,54 @@ services:
       retries: 10
       start_period: 10s
 
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./.env.docker.local
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      AINOVEL_DB_URL: jdbc:mysql://mysql:3306/ainovel?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      AINOVEL_DB_USERNAME: ${MYSQL_USER:-ainovel}
+      AINOVEL_DB_PASSWORD: ${MYSQL_PASSWORD:-ainovel123}
+      AINOVEL_REDIS_HOST: redis
+      AINOVEL_REDIS_PORT: 6379
+      AINOVEL_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      AINOVEL_REDIS_ADDRESS: redis://redis:6379
+    volumes:
+      - backend-logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   frontend:
     build:
       context: ../ainovel-front
       dockerfile: Dockerfile
     restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
     ports:
       - "80:80"
-    depends_on:
-      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
 volumes:
   mysql-data:
   redis-data:
+  backend-logs:
