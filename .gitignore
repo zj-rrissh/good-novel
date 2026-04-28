@@ -37,3 +37,18 @@ build/
 
 ### Local Secrets ###
 .env.docker.local
+
+### Python (spider 工具) ###
+spider/venv/
+spider/__pycache__/
+spider/output/
+spider/import_config.ini
+*.pyc
+
+### 临时文档 ###
+BUG_DIAGNOSIS_REPORT.md
+PROJECT_CHALLENGES.md
+
+### IDE/工具遗留 ###
+.codex/
+META-INF/
