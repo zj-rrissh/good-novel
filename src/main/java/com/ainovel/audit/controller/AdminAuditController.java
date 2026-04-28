@@ -8,7 +8,9 @@ import com.ainovel.audit.service.ManualReviewService;
 import com.ainovel.audit.vo.AuditTaskVO;
 import com.ainovel.common.api.PageResponse;
 import com.ainovel.common.api.Result;
+import com.ainovel.common.api.StandardErrorCode;
 import com.ainovel.infrastructure.aop.lock.Lock;
+import com.ainovel.infrastructure.exception.BusinessException;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,6 +36,15 @@ public class AdminAuditController {
     @GetMapping
     public Result<PageResponse<AuditTaskVO>> query(@Valid AdminAuditQuery query) {
         return Result.success(auditTaskService.query(query));
+    }
+
+    @GetMapping("/{taskId}")
+    public Result<AuditTaskVO> getTask(@PathVariable Long taskId) {
+        AuditTaskVO task = auditTaskService.getTask(taskId);
+        if (task == null) {
+            throw new BusinessException(StandardErrorCode.INVALID_REQUEST, "audit task not found");
+        }
+        return Result.success(task);
     }
 
     @PostMapping("/{taskId}/review")

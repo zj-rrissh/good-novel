@@ -11,9 +11,14 @@ public record AuditTaskVO(
         Long bizId,
         AuditStatus auditStatus,
         RiskLevel riskLevel,
+        String contentSnapshot,
+        String contentHash,
         String reasonCode,
         String reasonText,
         Long reviewerId,
+        Integer retryCount,
+        String ruleVersion,
         LocalDateTime reviewedAt,
-        LocalDateTime createdAt) {
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt) {
 }

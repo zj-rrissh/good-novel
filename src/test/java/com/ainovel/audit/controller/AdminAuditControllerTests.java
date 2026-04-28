@@ -43,6 +43,7 @@ class AdminAuditControllerTests {
     @BeforeEach
     void setUp() throws Exception {
         CurrentUserHolder.clear();
+        jdbcTemplate.update("delete from admin_operation_log");
         jdbcTemplate.update("delete from audit_task");
 
         CurrentUserHolder.set(new CurrentUser(
@@ -61,6 +62,31 @@ class AdminAuditControllerTests {
     @AfterEach
     void tearDown() {
         CurrentUserHolder.clear();
+    }
+
+    @Test
+    void shouldQueryAuditTaskDetailFromAdminPath() throws Exception {
+        Long taskId = insertAuditTask(3101L, "PENDING", "detail-hash");
+
+        mockMvc.perform(get("/api/admin/v1/audit/tasks/{taskId}", taskId)
+                        .header("X-Client", "admin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.taskId").value(taskId))
+                .andExpect(jsonPath("$.data.bizId").value(3101))
+                .andExpect(jsonPath("$.data.contentSnapshot").value("snapshot-3101"))
+                .andExpect(jsonPath("$.data.contentHash").value("detail-hash"))
+                .andExpect(jsonPath("$.data.retryCount").value(0))
+                .andExpect(jsonPath("$.data.ruleVersion").value("v1"));
+    }
+
+    @Test
+    void shouldReturnInvalidRequestWhenAuditTaskDetailMissing() throws Exception {
+        mockMvc.perform(get("/api/admin/v1/audit/tasks/{taskId}", 99999L)
+                        .header("X-Client", "admin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.message").value("invalid request"));
     }
 
     @Test
@@ -95,6 +121,7 @@ class AdminAuditControllerTests {
 
         mockMvc.perform(post("/api/v1/admin/audit/tasks/{taskId}/review", taskId)
                         .header("X-Client", "admin")
+                        .header("X-Trace-Id", "trace-audit-review-1")
                         .contentType("application/json")
                         .content(payload))
                 .andExpect(status().isOk())
@@ -103,6 +130,20 @@ class AdminAuditControllerTests {
                 .andExpect(jsonPath("$.data.auditStatus").value("REJECT"))
                 .andExpect(jsonPath("$.data.reasonCode").value("RISK_TEXT"))
                 .andExpect(jsonPath("$.data.reviewerId").value(9101));
+
+        Integer operationLogCount = jdbcTemplate.queryForObject(
+                """
+                select count(1)
+                from admin_operation_log
+                where action = 'AUDIT_MANUAL_DECIDED'
+                  and biz_type = 'AUDIT_TASK'
+                  and biz_id = ?
+                  and operator_id = 9101
+                  and trace_id = 'trace-audit-review-1'
+                """,
+                Integer.class,
+                taskId);
+        org.junit.jupiter.api.Assertions.assertEquals(1, operationLogCount);
     }
 
     @Test
