@@ -83,15 +83,7 @@ docker compose up -d mysql redis
 
 应用启动后 Flyway 自动执行数据库迁移。访问 http://localhost:8080/actuator/health 验证。
 
-### 3. 启动前端（可选）
-
-```bash
-cd ../ainovel-front
-npm install
-npm run dev
-```
-
-### 4. 运行测试
+### 3. 运行测试
 
 ```bash
 ./mvnw test
